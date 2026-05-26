@@ -319,6 +319,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
       <span id="page-indicator">Seite 1</span>
       <button class="flip-btn" onclick="flipNext()">›</button>
     </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.2);text-align:center;padding-bottom:4px;flex-shrink:0">
+      ← wischen zum Blättern →
+    </div>
   </div>
 
   <!-- BERATER -->
@@ -629,9 +632,12 @@ async function handlePageUpload(e){
       showUploadProgress(done,files.length);
       // Save to Firebase so pages persist after reload
       if(db){
-        await db.ref("katalog/"+CATALOGS[currentCatIdx].id+"/pages").set(
-          cat.pages.filter(p=>p.type==="image").map(p=>({src:p.src,label:p.label||"",hotspots:p.hotspots||[]}))
-        );
+        // Save all image pages after each upload
+        const toSave=cat.pages
+          .filter(p=>p.type==="image")
+          .map(p=>({src:p.src,label:p.label||"",hotspots:p.hotspots||[]}));
+        await db.ref("katalog/"+CATALOGS[currentCatIdx].id+"/pages").set(toSave);
+        console.log("Saved",toSave.length,"pages to Firebase");
       }
     }catch(err){
       done++;
@@ -895,12 +901,21 @@ function flipNext(){
 }
 
 // Swipe support for tablets
-let touchStartX=0;
-document.addEventListener("touchstart",e=>{touchStartX=e.touches[0].clientX},{passive:true});
+let touchStartX=0, touchStartY=0;
+document.addEventListener("touchstart",e=>{
+  touchStartX=e.touches[0].clientX;
+  touchStartY=e.touches[0].clientY;
+},{passive:true});
 document.addEventListener("touchend",e=>{
-  if(document.getElementById("screen-catalog").classList.contains("active")){
-    const dx=e.changedTouches[0].clientX-touchStartX;
-    if(Math.abs(dx)>60){dx<0?flipNext():flipPrev();}
+  // Only swipe in catalog screen, not when modal is open
+  const catalogActive=document.getElementById("screen-catalog").classList.contains("active");
+  const modalOpen=document.getElementById("modal-overlay").classList.contains("open");
+  if(!catalogActive||modalOpen)return;
+  const dx=e.changedTouches[0].clientX-touchStartX;
+  const dy=e.changedTouches[0].clientY-touchStartY;
+  // Only horizontal swipes (not scrolling)
+  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5){
+    dx<0?flipNext():flipPrev();
   }
 },{passive:true});
 
@@ -1159,8 +1174,25 @@ function showNumberScreen(nummer,typ){
 }
 
 function resetAndHome(){
-  wishlist=[];updateWishBadge();
+  // Alles zurücksetzen für nächsten Kunden
+  cart=[];
+  wishlist=[];
+  updateCartBadge();
+  updateWishBadge();
+  // Katalog zurück auf Seite 1
+  currentPageIdx=0;
+  const viewer=document.getElementById("page-viewer");
+  if(viewer){viewer.innerHTML="";showPage(0,"none");}
+  // Berater zurücksetzen
+  document.querySelectorAll(".anlass-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("rec-section").style.display="none";
+  const advAns=document.getElementById("adv-answer");
+  if(advAns){advAns.style.display="none";advAns.innerHTML="";}
+  // Upsell schließen
+  closeUpsell();
+  // Zum Katalog
   showScreen("catalog");
+  toast("👋 Willkommen!","gold");
 }
 
 // ═══════════════════════════════════════════════════
@@ -1273,16 +1305,28 @@ function toast(msg,type="gold"){
 // INIT
 // ═══════════════════════════════════════════════════
 async function loadSavedPages(){
-  if(!db)return;
+  if(!db){console.warn("Firebase not available");return;}
   for(const cat of CATALOGS){
     try{
       const snap=await db.ref("katalog/"+cat.id+"/pages").once("value");
-      const saved=snap.val();
-      if(saved&&saved.length){
-        // Replace image pages with saved ones, keep cover
-        cat.pages=cat.pages.filter(p=>p.type==="cover");
-        saved.forEach(p=>cat.pages.push({type:"image",src:p.src,label:p.label||"",hotspots:p.hotspots||[]}));
-      }
+      const raw=snap.val();
+      if(!raw)continue;
+      // Firebase returns objects with numeric keys, not arrays — convert properly
+      const saved=Array.isArray(raw)?raw:Object.values(raw);
+      if(!saved||!saved.length)continue;
+      // Replace image pages with saved ones, keep cover
+      cat.pages=cat.pages.filter(p=>p.type==="cover");
+      saved.forEach(p=>{
+        if(p&&p.src){
+          cat.pages.push({
+            type:"image",
+            src:p.src,
+            label:p.label||"",
+            hotspots:Array.isArray(p.hotspots)?p.hotspots:Object.values(p.hotspots||{})
+          });
+        }
+      });
+      console.log("Loaded",saved.length,"pages for",cat.id);
     }catch(e){console.warn("Could not load pages for",cat.id,e);}
   }
 }

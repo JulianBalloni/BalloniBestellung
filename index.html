@@ -1200,19 +1200,29 @@ function renderWish(){
 function rmWish(i){wishlist.splice(i,1);updateWishBadge();renderWish()}
 
 async function callStaff(){
-  const nummer=await getNextNumber("wunsch");
-  // Wunschliste in Firebase speichern
-  if(db) await db.ref("wunschlisten").push({
-    nummer,typ:"wunschliste",
-    zeitstempel:Date.now(),
-    datum:new Date().toLocaleDateString("de-DE"),
-    uhrzeit:new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}),
-    artikel:wishlist.map(it=>({name:it.spot.name,menge:it.menge,aufschrift:it.text||null,farbe:it.farbe?.name||null})),
-  });
-  // Bon drucken
-  printWunschliste(nummer);
-  // Nummer-Screen zeigen
-  showNumberScreen(nummer,"wunsch");
+  try{
+    const nummer=await getNextNumber("wunsch");
+    // Firebase speichern — Fehler hier soll nicht den ganzen Flow stoppen
+    try{
+      if(db) await db.ref("wunschlisten").push({
+        nummer,typ:"wunschliste",
+        zeitstempel:Date.now(),
+        datum:new Date().toLocaleDateString("de-DE"),
+        uhrzeit:new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}),
+        artikel:wishlist.map(it=>({name:it.spot.name,menge:it.menge,aufschrift:it.text||null,farbe:it.farbe?.name||null})),
+      });
+    }catch(fbErr){console.warn("Firebase Wunschliste:",fbErr);}
+    // Bon drucken
+    printWunschliste(nummer);
+    // Nummer-Screen zeigen
+    showNumberScreen(nummer,"wunsch");
+  }catch(e){
+    console.error("callStaff Fehler:",e);
+    // Fallback: einfach Nummer lokal generieren und weitermachen
+    const fallbackNr=1000+Math.floor(Math.random()*900);
+    printWunschliste(fallbackNr);
+    showNumberScreen(fallbackNr,"wunsch");
+  }
 }
 
 function initiateCallStaff(){
@@ -1220,8 +1230,12 @@ function initiateCallStaff(){
     toast("Bitte zuerst Produkte zur Wunschliste hinzufügen!","gold");
     return;
   }
-  // Direkt abschließen — Upsell kam bereits beim Hinzufügen
-  callStaff();
+  // Button deaktivieren während Verarbeitung läuft
+  const btn=document.querySelector(".call-staff-btn");
+  if(btn){btn.disabled=true;btn.textContent="⏳ Wird bearbeitet...";}
+  callStaff().finally(()=>{
+    if(btn){btn.disabled=false;btn.innerHTML="🙋 Mitarbeiter rufen &amp; Nummer ziehen";}
+  });
 }
 
 function printWunschliste(nummer){

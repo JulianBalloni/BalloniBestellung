@@ -1216,16 +1216,12 @@ async function callStaff(){
 }
 
 function initiateCallStaff(){
-  // Check if wishlist has items
   if(!wishlist.length){
     toast("Bitte zuerst Produkte zur Wunschliste hinzufügen!","gold");
     return;
   }
-  // Show upsell first if applicable, then call staff
-  const lastItem=wishlist[wishlist.length-1];
-  showUpsell(lastItem.spot,"wish",()=>{
-    callStaff();
-  });
+  // Direkt abschließen — Upsell kam bereits beim Hinzufügen
+  callStaff();
 }
 
 function printWunschliste(nummer){

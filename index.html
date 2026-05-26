@@ -4,8 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 <title>BALLONI — Katalog & Bestellung</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
@@ -52,33 +51,51 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
 .screen.active{display:flex}
 
 /* ── KATALOG ── */
-#screen-catalog{align-items:center;background:radial-gradient(ellipse at center,#1e1245 0%,#0d0820 70%);padding:8px;gap:6px}
+#screen-catalog{background:radial-gradient(ellipse at center,#1e1245 0%,#0d0820 70%);padding:8px;gap:6px;overflow:hidden}
 #catalog-tabs{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex-shrink:0}
 .cat-tab{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:18px;padding:5px 13px;font-size:12px;cursor:pointer;transition:all .15s}
 .cat-tab.active{background:var(--gold);color:#0d0820;font-weight:700;border-color:var(--gold)}
-#flipbook-wrap{position:relative;display:flex;align-items:center;justify-content:center;flex:1;width:100%;min-height:0}
-.flip-btn{background:rgba(255,215,0,0.12);border:1px solid var(--border);color:var(--gold);border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-#flip-controls{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:3px 0 6px}
-#page-indicator{font-size:12px;color:var(--muted);min-width:70px;text-align:center}
-.page{background:#fff;overflow:hidden;position:relative}
-.page-cover{background:linear-gradient(145deg,#1a0a40,#2d1b6e);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.page-cover h1{font-size:22px;font-weight:800;color:var(--gold);text-align:center;line-height:1.2;white-space:pre-line}
-.page-cover p{font-size:12px;color:rgba(255,255,255,0.5);text-align:center;padding:0 14px}
-.page img{width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5}
+
+/* Flipbook container */
+#flipbook-wrap{position:relative;flex:1;width:100%;display:flex;align-items:center;justify-content:center;min-height:0;perspective:2000px}
+#flip-controls{display:flex;align-items:center;gap:14px;flex-shrink:0;padding:4px 0 8px;justify-content:center}
+#page-indicator{font-size:12px;color:var(--muted);min-width:80px;text-align:center}
+.flip-btn{background:rgba(255,215,0,0.12);border:1px solid var(--border);color:var(--gold);border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s;user-select:none}
+.flip-btn:hover{background:rgba(255,215,0,0.25)}
+
+/* Page viewer */
+#page-viewer{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.page-slot{position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.6);border-radius:3px;overflow:hidden;transition:transform 0.4s ease,opacity 0.4s ease;background:#fff;flex-shrink:0}
+.page-slot img{width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5;pointer-events:none}
+/* Cover page */
+.page-cover-inner{width:100%;height:100%;background:linear-gradient(145deg,#1a0a40,#2d1b6e);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px}
+.page-cover-inner h1{font-size:22px;font-weight:800;color:var(--gold);text-align:center;line-height:1.2;white-space:pre-line}
+.page-cover-inner p{font-size:12px;color:rgba(255,255,255,0.5);text-align:center}
+/* Demo page */
+.page-demo-inner{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px}
+
+/* Flip animation */
+.page-slot.flip-out-left{animation:flipOutLeft 0.35s ease forwards}
+.page-slot.flip-in-right{animation:flipInRight 0.35s ease forwards}
+.page-slot.flip-out-right{animation:flipOutRight 0.35s ease forwards}
+.page-slot.flip-in-left{animation:flipInLeft 0.35s ease forwards}
+@keyframes flipOutLeft{0%{transform:rotateY(0deg);opacity:1}100%{transform:rotateY(-25deg);opacity:0}}
+@keyframes flipInRight{0%{transform:rotateY(25deg);opacity:0}100%{transform:rotateY(0deg);opacity:1}}
+@keyframes flipOutRight{0%{transform:rotateY(0deg);opacity:1}100%{transform:rotateY(25deg);opacity:0}}
+@keyframes flipInLeft{0%{transform:rotateY(-25deg);opacity:0}100%{transform:rotateY(0deg);opacity:1}}
+
+/* Hotspots */
 .hpin{position:absolute;transform:translate(-50%,-50%);z-index:20;cursor:pointer}
 .hpin .ring{position:absolute;inset:-8px;border-radius:50%;border:2px solid var(--gold);opacity:.4;animation:ping 2s ease-out infinite}
-.hpin .dot{width:26px;height:26px;border-radius:50%;background:var(--gold);border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#0d0820;transition:transform .15s}
+.hpin .dot{width:28px;height:28px;border-radius:50%;background:var(--gold);border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#0d0820;transition:transform .15s}
 .hpin:hover .dot{transform:scale(1.2)}
 .hpin.sold-out .dot{background:#888;border-color:#ccc}
 .hpin.sold-out .ring{display:none}
-.hpin .tip{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);background:rgba(13,8,32,.94);border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;text-align:center}
+.hpin .tip{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);background:rgba(13,8,32,.94);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;text-align:center}
 .hpin:hover .tip{opacity:1}
 .sold-badge-sm{background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px}
 @keyframes ping{0%{transform:scale(.8);opacity:.6}100%{transform:scale(2.4);opacity:0}}
-
-/* Admin pin edit */
-.hpin.admin-mode .dot{background:rgba(255,165,0,.85);font-size:10px}
-.placing-cursor{cursor:crosshair!important}
+.hpin.admin-mode .dot{background:rgba(255,165,0,.85);font-size:11px}
 
 /* ── WARENKORB ── */
 #screen-cart{overflow-y:auto;padding:20px;align-items:center}
@@ -295,11 +312,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
   <div id="screen-catalog" class="screen active">
     <div id="catalog-tabs" style="padding:7px 14px 0"></div>
     <div id="flipbook-wrap">
+      <div id="page-viewer"></div>
+    </div>
+    <div id="flip-controls">
       <button class="flip-btn" onclick="flipPrev()">‹</button>
-      <div id="flipbook"></div>
+      <span id="page-indicator">Seite 1</span>
       <button class="flip-btn" onclick="flipNext()">›</button>
     </div>
-    <div id="flip-controls"><span id="page-indicator">Seite 1</span></div>
   </div>
 
   <!-- BERATER -->
@@ -715,99 +734,175 @@ function deleteHotspot(){
 }
 
 // ═══════════════════════════════════════════════════
-// FLIPBOOK
+// CUSTOM PAGE VIEWER (kein turn.js)
 // ═══════════════════════════════════════════════════
-let currentCatIdx=0,book=null;
+let currentCatIdx=0, currentPageIdx=0, isAnimating=false;
 
 function buildCatTabs(){
   const tabs=document.getElementById("catalog-tabs");
   tabs.innerHTML=CATALOGS.map((c,i)=>`<button class="cat-tab${i===0?" active":""}" onclick="loadCatalog(${i},this)">${c.name}</button>`).join("");
 }
 
-function calcSize(){
+function calcPageSize(){
   const wrap=document.getElementById("flipbook-wrap");
-  const W=wrap.clientWidth-82,H=wrap.clientHeight-8;
-  const pw=Math.min(Math.floor(W/2),400);
-  const ph=Math.min(H,Math.floor(pw*1.41));
+  const W=wrap.clientWidth-20;
+  const H=wrap.clientHeight-10;
+  // A4 portrait ratio = 1:1.414
+  let pw=Math.min(W, Math.floor(H/1.414));
+  let ph=Math.floor(pw*1.414);
+  if(ph>H){ph=H;pw=Math.floor(ph/1.414);}
   return{pw,ph};
 }
 
-function buildPage(p,pw,ph,pi,ci){
+function buildPageEl(p,pi,ci){
+  const{pw,ph}=calcPageSize();
+  const el=document.createElement("div");
+  el.className="page-slot";
+  el.style.width=pw+"px";
+  el.style.height=ph+"px";
+
   if(p.type==="cover"){
-    return`<div class="page page-cover" style="width:${pw}px;height:${ph}px">
+    el.innerHTML=`<div class="page-cover-inner">
       <div style="font-size:52px">🎈</div>
-      <h1>${p.title.replace("\n","<br>")}</h1><p>${p.sub}</p>
+      <h1>${(p.title||"").replace("\n","<br>")}</h1>
+      <p>${p.sub||""}</p>
       <div style="font-size:10px;color:rgba(255,215,0,0.35);letter-spacing:2px;text-transform:uppercase;margin-top:10px">BALLONI · Köln-Ehrenfeld</div>
     </div>`;
-  }
-  const pins=(p.hotspots||[]).map(h=>{
-    const enc=encodeURIComponent(JSON.stringify({...h,ci,pi}));
-    const sold=h.soldOut?"sold-out":"";
-    const adm=adminMode?"admin-mode":"";
-    return`<div class="hpin ${sold} ${adm}" style="left:${h.x}%;top:${h.y}%" onclick="pinClick(event,'${enc}',${ci},${pi},${h.id})">
-      ${!h.soldOut?'<div class="ring"></div>':''}
-      <div class="dot">${adminMode?"✦":"+"}</div>
-      <div class="tip">${h.name}${h.preis>0?`<br><span style="color:var(--gold)">${h.preis.toFixed(2)} €</span>`:""}${h.soldOut?'<br><span class="sold-badge-sm">AUSVERKAUFT</span>':""}</div>
-    </div>`;
-  }).join("");
-  if(p.type==="image"&&p.src){
-    return`<div class="page" style="width:${pw}px;height:${ph}px;position:relative" onclick="pageClick(event,${ci},${pi})">${adminMode?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(255,165,0,0.6);z-index:5;pointer-events:none">📍 Klicken = neuer Hotspot</div>`:""}<img src="${p.src}" loading="lazy"/>${pins}</div>`;
-  }
-  return`<div class="page" style="width:${pw}px;height:${ph}px;background:${p.bg||"#f5f5f5"};position:relative" onclick="pageClick(event,${ci},${pi})">
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:9px;padding:14px;pointer-events:none">
+  } else if(p.type==="image"&&p.src){
+    el.style.cursor=adminMode&&placing?"crosshair":"default";
+    el.innerHTML=`<img src="${p.src}" loading="lazy" style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5"/>`;
+    if(adminMode){
+      const hint=document.createElement("div");
+      hint.style.cssText="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(255,165,0,0.7);pointer-events:none;background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:8px;white-space:nowrap";
+      hint.textContent="📍 Klicken = Hotspot setzen";
+      el.appendChild(hint);
+    }
+    el.addEventListener("click",(e)=>pageClick(e,ci,pi));
+  } else {
+    // Demo page
+    const hotspotList=(p.hotspots||[]).map(h=>
+      h.soldOut?`<s style="color:#999">${h.name}</s> <span style="color:#f44;font-size:10px">ausverkauft</span>`
+      :`${h.name} — ${h.preis.toFixed(2)} €`
+    ).join("<br>");
+    el.style.background=p.bg||"#f5f5f5";
+    el.innerHTML=`<div class="page-demo-inner">
       <div style="font-size:44px">${p.emoji||"🎈"}</div>
       <div style="font-size:14px;font-weight:700;color:#444">${p.label||""}</div>
-      <div style="font-size:11px;color:#999;text-align:center;line-height:1.8">
-        ${(p.hotspots||[]).map(h=>`${h.soldOut?`<s>${h.name}</s> <span style="color:#f44;font-size:10px">ausverkauft</span>`:h.name+" — "+h.preis.toFixed(2)+" €"}`).join("<br>")}
-      </div>
-      ${adminMode?'<div style="font-size:10px;color:rgba(255,165,0,0.5);margin-top:5px">📍 Klicken = Hotspot setzen</div>':'<div style="font-size:10px;color:#bbb;margin-top:5px">💡 Goldene Punkte antippen</div>'}
-    </div>${pins}
-  </div>`;
+      <div style="font-size:11px;color:#999;text-align:center;line-height:1.8">${hotspotList}</div>
+      <div style="font-size:10px;color:#bbb;margin-top:5px">${adminMode?"📍 Klicken = Hotspot setzen":"💡 Goldene Punkte antippen"}</div>
+    </div>`;
+    el.addEventListener("click",(e)=>pageClick(e,ci,pi));
+  }
+
+  // Add hotspot pins
+  (p.hotspots||[]).forEach(h=>{
+    const pin=document.createElement("div");
+    const sold=h.soldOut?"sold-out":"";
+    const adm=adminMode?"admin-mode":"";
+    pin.className=`hpin ${sold} ${adm}`;
+    pin.style.left=h.x+"%";
+    pin.style.top=h.y+"%";
+    const enc=encodeURIComponent(JSON.stringify({...h,ci,pi}));
+    pin.innerHTML=`${!h.soldOut?'<div class="ring"></div>':''}
+      <div class="dot">${adminMode?"✦":"+"}</div>
+      <div class="tip">${h.name}${h.preis>0?`<br><span style="color:var(--gold)">${h.preis.toFixed(2)} €</span>`:""}${h.soldOut?'<br><span class="sold-badge-sm">AUSVERKAUFT</span>':""}</div>`;
+    pin.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      if(adminMode)openEditPanel(ci,pi,h.id);
+      else openModal(h);
+    });
+    el.appendChild(pin);
+  });
+
+  return el;
+}
+
+function showPage(idx, direction){
+  if(isAnimating)return;
+  const cat=CATALOGS[currentCatIdx];
+  if(idx<0||idx>=cat.pages.length)return;
+  const viewer=document.getElementById("page-viewer");
+  const oldSlot=viewer.querySelector(".page-slot");
+  const newSlot=buildPageEl(cat.pages[idx],idx,currentCatIdx);
+
+  if(!oldSlot){
+    viewer.appendChild(newSlot);
+  } else {
+    isAnimating=true;
+    const outClass=direction==="next"?"flip-out-left":"flip-out-right";
+    const inClass=direction==="next"?"flip-in-right":"flip-in-left";
+    oldSlot.classList.add(outClass);
+    newSlot.classList.add(inClass);
+    viewer.appendChild(newSlot);
+    setTimeout(()=>{
+      oldSlot.remove();
+      newSlot.classList.remove(inClass);
+      isAnimating=false;
+    },380);
+  }
+
+  currentPageIdx=idx;
+  document.getElementById("page-indicator").textContent=`Seite ${idx+1} von ${cat.pages.length}`;
 }
 
 function pinClick(e,enc,ci,pi,hid){
   e.stopPropagation();
   const h=JSON.parse(decodeURIComponent(enc));
-  if(adminMode){openEditPanel(ci,pi,hid);}
-  else{openModal(h);}
+  if(adminMode)openEditPanel(ci,pi,hid);
+  else openModal(h);
 }
+
 function pageClick(e,ci,pi){
   if(!adminMode||!placing)return;
   const el=e.currentTarget;
   const rect=el.getBoundingClientRect();
   const x=((e.clientX-rect.left)/rect.width)*100;
   const y=((e.clientY-rect.top)/rect.height)*100;
-  const hs=CATALOGS[ci].pages[pi].hotspots||(CATALOGS[ci].pages[pi].hotspots=[]);
+  const page=CATALOGS[ci].pages[pi];
+  if(!page.hotspots)page.hotspots=[];
   const newH={id:nextHid++,x,y,name:"Neues Produkt",preis:0,beschreibung:"",emoji:"🎈",optionen:["menge"],soldOut:false};
-  hs.push(newH);
+  page.hotspots.push(newH);
   placing=false;
   document.getElementById("btn-place").classList.remove("placing");
   document.getElementById("btn-place").textContent="📍 Hotspot setzen";
-  rebuildBook();
+  showPage(pi, "none");
   setTimeout(()=>openEditPanel(ci,pi,newH.id),200);
   toast("Hotspot gesetzt!","gold");
 }
 
 function loadCatalog(idx,btn){
   currentCatIdx=idx;
+  currentPageIdx=0;
   document.querySelectorAll(".cat-tab").forEach(b=>b.classList.remove("active"));
   if(btn)btn.classList.add("active");
-  rebuildBook();
+  const viewer=document.getElementById("page-viewer");
+  viewer.innerHTML="";
+  showPage(0,"none");
 }
+
 function rebuildBook(){
-  const cat=CATALOGS[currentCatIdx];
-  const{pw,ph}=calcSize();
-  const $fb=$("#flipbook");
-  $fb.empty().css({width:pw*2,height:ph});
-  cat.pages.forEach((p,i)=>$fb.append(buildPage(p,pw,ph,i,currentCatIdx)));
-  if(book){try{$fb.turn("destroy")}catch(e){}}
-  $fb.turn({width:pw*2,height:ph,autoCenter:true,display:"double",acceleration:true,gradients:true,elevation:50,
-    when:{turned:(e,pg)=>document.getElementById("page-indicator").textContent=`Seite ${pg} von ${cat.pages.length}`}});
-  book=$fb;
-  document.getElementById("page-indicator").textContent=`Seite 1 von ${cat.pages.length}`;
+  const viewer=document.getElementById("page-viewer");
+  viewer.innerHTML="";
+  showPage(currentPageIdx,"none");
 }
-function flipPrev(){if(book)book.turn("previous")}
-function flipNext(){if(book)book.turn("next")}
+
+function flipPrev(){
+  if(currentPageIdx>0)showPage(currentPageIdx-1,"prev");
+}
+function flipNext(){
+  const cat=CATALOGS[currentCatIdx];
+  if(currentPageIdx<cat.pages.length-1)showPage(currentPageIdx+1,"next");
+}
+
+// Swipe support for tablets
+let touchStartX=0;
+document.addEventListener("touchstart",e=>{touchStartX=e.touches[0].clientX},{passive:true});
+document.addEventListener("touchend",e=>{
+  if(document.getElementById("screen-catalog").classList.contains("active")){
+    const dx=e.changedTouches[0].clientX-touchStartX;
+    if(Math.abs(dx)>60){dx<0?flipNext():flipPrev();}
+  }
+},{passive:true});
 
 // ═══════════════════════════════════════════════════
 // KONFIGURATOR MODAL

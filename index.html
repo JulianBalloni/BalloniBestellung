@@ -157,16 +157,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
 .number-info{color:rgba(255,255,255,.6);font-size:14px;line-height:1.7;max-width:400px;margin:0 auto 24px}
 .back-home-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:11px 28px;font-size:14px;cursor:pointer;margin-top:8px}
 
-/* ── PAYMENT SCREEN ── */
-#screen-payment{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center;gap:20px}
-.pay-amount{font-size:56px;font-weight:900;color:var(--gold)}
-.pay-info{color:var(--muted);font-size:15px;max-width:360px}
-.pay-nfc{font-size:80px;animation:pulse 1.8s ease-in-out infinite}
-@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.1);opacity:.7}}
-.pay-status{font-size:16px;font-weight:700;padding:10px 24px;border-radius:20px}
-.pay-status.waiting{background:rgba(255,215,0,.1);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
-.pay-status.success{background:rgba(76,175,80,.15);color:var(--green);border:1px solid rgba(76,175,80,.3)}
-.pay-manual{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:11px;padding:10px 20px;font-size:13px;cursor:pointer;margin-top:10px}
+
 
 /* ── MODAL ── */
 #modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:500;align-items:center;justify-content:center;padding:18px}
@@ -246,16 +237,47 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
 #pin-input{width:100%;background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:10px;padding:13px;color:#fff;font-size:20px;letter-spacing:8px;text-align:center;outline:none;margin-bottom:12px}
 #pin-error{color:var(--red);font-size:12px;margin-bottom:8px;min-height:16px}
 
-/* Upsell */
-#upsell-panel{display:none;position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#1e1035,#0d0820);border-top:2px solid var(--gold);padding:14px 18px;z-index:300;animation:slideUp .3s ease}
-#upsell-panel.open{display:block}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-#upsell-inner{max-width:660px;margin:0 auto}
-#upsell-title{color:var(--gold);font-size:13px;font-weight:700;margin-bottom:9px}
-#upsell-items{display:flex;gap:8px;flex-wrap:wrap}
-.up-chip{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);border-radius:10px;padding:7px 11px;font-size:12px;display:flex;gap:7px;align-items:center}
-.up-add{background:var(--gold);color:#0d0820;border:none;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer}
-#upsell-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--muted);font-size:19px;cursor:pointer}
+/* Upsell Modal */
+#upsell-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:600;align-items:center;justify-content:center;padding:20px}
+#upsell-modal.open{display:flex}
+#upsell-box{background:linear-gradient(135deg,#1e1035,#0d0820);border:2px solid var(--gold);border-radius:24px;padding:28px;max-width:440px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.7)}
+.upsell-header{text-align:center;margin-bottom:20px}
+.upsell-header .uh-emoji{font-size:44px;display:block;margin-bottom:10px}
+.upsell-header h3{color:var(--gold);font-size:20px;font-weight:800;margin-bottom:6px}
+.upsell-header p{color:var(--muted);font-size:13px}
+.upsell-items{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.upsell-item{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all .18s}
+.upsell-item:hover{background:rgba(255,215,0,.1);border-color:rgba(255,215,0,.4)}
+.upsell-item.selected{background:rgba(255,215,0,.15);border-color:var(--gold)}
+.ui-emoji{font-size:26px;flex-shrink:0}
+.ui-info{flex:1}
+.ui-name{font-weight:700;font-size:14px}
+.ui-desc{font-size:11px;color:var(--muted);margin-top:2px}
+.ui-price{color:var(--gold);font-weight:800;font-size:16px;flex-shrink:0}
+.ui-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .15s}
+.upsell-item.selected .ui-check{background:var(--gold);border-color:var(--gold);color:#0d0820}
+.upsell-btns{display:flex;gap:10px}
+
+/* SumUp Simulation */
+#sumup-modal{display:none;position:fixed;inset:0;z-index:700;align-items:center;justify-content:center}
+#sumup-modal.open{display:flex}
+#sumup-bg{position:absolute;inset:0;background:#1a1a2e}
+#sumup-box{position:relative;background:linear-gradient(145deg,#16213e,#0f3460);border-radius:28px;padding:36px 28px;max-width:380px;width:100%;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.1)}
+.sumup-logo{font-size:13px;font-weight:800;letter-spacing:3px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:24px}
+.sumup-amount{font-size:52px;font-weight:900;color:#fff;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.sumup-label{font-size:14px;color:rgba(255,255,255,.5);margin-bottom:32px}
+.sumup-nfc{font-size:72px;margin-bottom:16px;transition:transform .3s}
+.sumup-nfc.pulse{animation:nfcPulse 1.5s ease-in-out infinite}
+@keyframes nfcPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.7}}
+.sumup-status{font-size:16px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:8px}
+.sumup-hint{font-size:12px;color:rgba(255,255,255,.3);margin-bottom:28px}
+.sumup-progress{width:100%;height:3px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-bottom:24px}
+.sumup-progress-bar{height:100%;background:linear-gradient(90deg,#00d4ff,#0099cc);border-radius:3px;transition:width .3s}
+.sumup-success{display:none;flex-direction:column;align-items:center;gap:12px}
+.sumup-success .check{font-size:64px}
+.sumup-success h3{font-size:22px;font-weight:800;color:#4CAF50}
+.sumup-success p{font-size:14px;color:rgba(255,255,255,.5)}
+.sumup-manual{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:10px;padding:8px 16px;font-size:12px;cursor:pointer;margin-top:4px}
 
 /* Toast */
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);padding:9px 20px;border-radius:18px;font-weight:700;font-size:13px;z-index:999;transition:opacity .4s;pointer-events:none;white-space:nowrap}
@@ -402,15 +424,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
     <button class="back-home-btn" onclick="resetAndHome()">← Zurück zum Katalog</button>
   </div>
 
-  <!-- ZAHLUNG -->
-  <div id="screen-payment" class="screen">
-    <div style="color:var(--muted);font-size:14px">Bitte bezahlen</div>
-    <div class="pay-amount" id="pay-amount">0,00 €</div>
-    <div class="pay-nfc">📱</div>
-    <div class="pay-info">Halte dein Smartphone oder deine Karte an das Lesegerät</div>
-    <div class="pay-status waiting" id="pay-status">Warte auf Zahlung…</div>
-    <button class="pay-manual" onclick="payManual()">Zahlung manuell bestätigen (Mitarbeiter)</button>
-  </div>
+  <!-- ZAHLUNG wird als Modal gezeigt (sumup-modal) -->
 
 </div><!-- /main -->
 
@@ -446,12 +460,41 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
   <div id="modal-box"><div class="mprog" id="mprog"></div><div id="mcontent"></div></div>
 </div>
 
-<!-- UPSELL -->
-<div id="upsell-panel">
-  <button id="upsell-close" onclick="closeUpsell()">✕</button>
-  <div id="upsell-inner">
-    <div id="upsell-title">💡 Passend dazu empfehlen wir:</div>
-    <div id="upsell-items"></div>
+<!-- UPSELL MODAL -->
+<div id="upsell-modal">
+  <div id="upsell-box">
+    <div class="upsell-header">
+      <span class="uh-emoji">💡</span>
+      <h3>Passend dazu empfehlen wir:</h3>
+      <p>Einfach antippen um hinzuzufügen</p>
+    </div>
+    <div class="upsell-items" id="upsell-items"></div>
+    <div class="upsell-btns">
+      <button class="btn-gold" style="flex:1;padding:13px;font-size:15px" onclick="confirmUpsell()">✅ Hinzufügen &amp; weiter</button>
+      <button class="btn-ghost" style="padding:13px 16px" onclick="skipUpsell()">Nein danke</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUMUP SIMULATION -->
+<div id="sumup-modal">
+  <div id="sumup-bg"></div>
+  <div id="sumup-box">
+    <div class="sumup-logo">SumUp</div>
+    <div id="sumup-paying">
+      <div class="sumup-amount" id="sumup-amount">0,00 €</div>
+      <div class="sumup-label">Bitte bezahlen</div>
+      <div class="sumup-nfc pulse" id="sumup-nfc">📱</div>
+      <div class="sumup-status">Karte oder Handy ans Gerät halten</div>
+      <div class="sumup-hint">NFC · Kontaktlos · Apple Pay · Google Pay</div>
+      <div class="sumup-progress"><div class="sumup-progress-bar" id="sumup-bar" style="width:0%"></div></div>
+      <button class="sumup-manual" onclick="sumupSuccess()">✓ Zahlung bestätigen (Demo)</button>
+    </div>
+    <div class="sumup-success" id="sumup-success">
+      <div class="check">✅</div>
+      <h3>Zahlung erfolgreich!</h3>
+      <p id="sumup-success-amount"></p>
+    </div>
   </div>
 </div>
 
@@ -1019,9 +1062,12 @@ function addItem(){
   const item={id:Date.now(),spot:mSpot,text:mText,farbe:mFarbe,menge:mMenge,dest:mDest};
   if(mDest==="cart"){cart.push(item);updateCartBadge();}
   else{wishlist.push(item);updateWishBadge();}
+  const dest=mDest;
+  const spot=mSpot;
   closeModalForce();
-  toast(mDest==="cart"?"🛒 In den Warenkorb!":"🌟 Zur Wunschliste!",mDest==="cart"?"green":"orange");
-  setTimeout(()=>showUpsell(mSpot),400);
+  toast(dest==="cart"?"🛒 In den Warenkorb!":"🌟 Zur Wunschliste!",dest==="cart"?"green":"orange");
+  // Show upsell modal before continuing
+  setTimeout(()=>showUpsell(spot, dest, null), 350);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1080,19 +1126,42 @@ async function startCheckout(){
   showPayment(sum,nummer);
 }
 
-function showPayment(sum,nummer){
-  document.getElementById("pay-amount").textContent=sum.toFixed(2).replace(".",",")+` €`;
-  document.getElementById("pay-status").textContent="Warte auf Zahlung…";
-  document.getElementById("pay-status").className="pay-status waiting";
-  showScreen("payment");
-  // SumUp würde hier angesprochen — für Demo: manuell bestätigen möglich
-  // Echter SumUp-Flow: window.location.href = `sumupmerchant://pay?amount=${sum}&currency=EUR`
+let currentOrderNummer=null;
+
+function showPayment(sum, nummer){
+  currentOrderNummer=nummer;
+  const amountStr=sum.toFixed(2).replace(".",",")+` €`;
+  document.getElementById("sumup-amount").textContent=amountStr;
+  document.getElementById("sumup-success-amount").textContent=amountStr+" — Vielen Dank! 🎈";
+  document.getElementById("sumup-paying").style.display="block";
+  document.getElementById("sumup-success").style.display="none";
+  document.getElementById("sumup-nfc").className="sumup-nfc pulse";
+  document.getElementById("sumup-bar").style.width="0%";
+  document.getElementById("sumup-modal").classList.add("open");
+  // Simulate payment progress
+  let progress=0;
+  const interval=setInterval(()=>{
+    progress+=2;
+    document.getElementById("sumup-bar").style.width=progress+"%";
+    if(progress>=100){clearInterval(interval);setTimeout(sumupSuccess,300);}
+  },60); // ~3 seconds total
 }
-function payManual(){
-  document.getElementById("pay-status").textContent="✅ Zahlung bestätigt!";
-  document.getElementById("pay-status").className="pay-status success";
+
+function sumupSuccess(){
+  document.getElementById("sumup-paying").style.display="none";
+  document.getElementById("sumup-success").style.display="flex";
+  document.getElementById("sumup-nfc").className="sumup-nfc";
+  // Mark order as paid in Firebase
+  if(db&&currentOrderNummer){
+    db.ref("bestellungen").orderByChild("nummer").equalTo(currentOrderNummer).once("value",snap=>{
+      snap.forEach(child=>child.ref.update({status:"bezahlt"}));
+    });
+  }
   cart=[];updateCartBadge();
-  setTimeout(()=>resetAndHome(),2500);
+  setTimeout(()=>{
+    document.getElementById("sumup-modal").classList.remove("open");
+    resetAndHome();
+  },2500);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1158,7 +1227,12 @@ function printWunschliste(nummer){
       Ein Mitarbeiter wird Sie aufrufen.<br>Danke für Ihre Geduld! 😊
     </div>
   </body></html>`);
-  w.document.close();w.print();
+  w.document.close();
+  w.focus();
+  w.print();
+  // Reset after print dialog closes
+  w.onafterprint=()=>{w.close();};
+  setTimeout(()=>{w.close();},8000);
 }
 
 function showNumberScreen(nummer,typ){
@@ -1171,6 +1245,10 @@ function showNumberScreen(nummer,typ){
     ?"Ein Mitarbeiter wird Sie in Kürze aufrufen. Ihr Zettel enthält alle Ihre Wünsche."
     :"Ihre Bestellung wird bearbeitet. Bitte bezahlen Sie am Gerät.";
   showScreen("number");
+  // Auto-reset after 8 seconds for next customer
+  if(isWunsch){
+    setTimeout(()=>resetAndHome(), 8000);
+  }
 }
 
 function resetAndHome(){
@@ -1196,24 +1274,66 @@ function resetAndHome(){
 }
 
 // ═══════════════════════════════════════════════════
-// UPSELL
+// UPSELL MODAL
 // ═══════════════════════════════════════════════════
-function showUpsell(product){
+let upsellSelected=new Set();
+let upsellItems=[];
+let upsellDest="cart";
+let pendingAfterUpsell=null; // callback after upsell
+
+function showUpsell(product, dest, afterFn){
   const nl=(product.name||"").toLowerCase();
   let keys=[];
   for(const[k,v] of Object.entries(UPSELL_RULES)){if(nl.includes(k)){keys=v;break;}}
-  if(!keys.length)return;
-  const items=ZUBEHOER.filter(z=>keys.includes(z.id));
-  if(!items.length)return;
-  document.getElementById("upsell-items").innerHTML=items.map(p=>{
-    const enc=encodeURIComponent(JSON.stringify(p));
-    return`<div class="up-chip">${p.emoji} <strong>${p.name}</strong> — ${p.preis.toFixed(2)} €
-      <button class="up-add" onclick="openModal(JSON.parse(decodeURIComponent('${enc}')));closeUpsell()">+ Merken</button></div>`;
-  }).join("");
-  document.getElementById("upsell-panel").classList.add("open");
-  setTimeout(closeUpsell,8000);
+  if(!keys.length){if(afterFn)afterFn();return;}
+  upsellItems=ZUBEHOER.filter(z=>keys.includes(z.id));
+  if(!upsellItems.length){if(afterFn)afterFn();return;}
+  upsellSelected=new Set();
+  upsellDest=dest||"cart";
+  pendingAfterUpsell=afterFn||null;
+  renderUpsellItems();
+  document.getElementById("upsell-modal").classList.add("open");
 }
-function closeUpsell(){document.getElementById("upsell-panel").classList.remove("open")}
+
+function renderUpsellItems(){
+  document.getElementById("upsell-items").innerHTML=upsellItems.map((p,i)=>`
+    <div class="upsell-item ${upsellSelected.has(i)?"selected":""}" onclick="toggleUpsellItem(${i})">
+      <div class="ui-emoji">${p.emoji}</div>
+      <div class="ui-info">
+        <div class="ui-name">${p.name}</div>
+        <div class="ui-desc">${p.beschreibung}</div>
+      </div>
+      <div class="ui-price">${p.preis.toFixed(2)} €</div>
+      <div class="ui-check">${upsellSelected.has(i)?"✓":""}</div>
+    </div>`).join("");
+}
+
+function toggleUpsellItem(i){
+  if(upsellSelected.has(i))upsellSelected.delete(i);
+  else upsellSelected.add(i);
+  renderUpsellItems();
+}
+
+function confirmUpsell(){
+  // Add selected upsell items to cart or wishlist
+  upsellSelected.forEach(i=>{
+    const p=upsellItems[i];
+    const item={id:Date.now()+i,spot:p,text:"",farbe:null,menge:1,dest:upsellDest};
+    if(upsellDest==="cart"){cart.push(item);updateCartBadge();}
+    else{wishlist.push(item);updateWishBadge();}
+  });
+  document.getElementById("upsell-modal").classList.remove("open");
+  if(pendingAfterUpsell)pendingAfterUpsell();
+}
+
+function skipUpsell(){
+  document.getElementById("upsell-modal").classList.remove("open");
+  if(pendingAfterUpsell)pendingAfterUpsell();
+}
+
+function closeUpsell(){
+  document.getElementById("upsell-modal").classList.remove("open");
+}
 
 // ═══════════════════════════════════════════════════
 // BERATER (hybrid)

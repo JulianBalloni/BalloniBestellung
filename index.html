@@ -1058,11 +1058,18 @@ function selectAnlass(id){
   const sec=document.getElementById("rec-section");
   document.getElementById("rec-title").textContent=`${a.emoji} Für: ${a.label}`;
   document.getElementById("rec-grid").innerHTML=recs.length
-    ?recs.map(p=>{const enc=encodeURIComponent(JSON.stringify(p));return`<div class="rec-card${p.soldOut?" sold":""}" onclick="${p.soldOut?"":``openModal(JSON.parse(decodeURIComponent('${enc}')))``}">
-      <div class="rec-emoji">${p.emoji||"🎈"}</div>
-      <div class="rec-info"><div class="rec-name">${p.name}${p.soldOut?` <span style="background:var(--red);color:#fff;font-size:9px;border-radius:4px;padding:1px 5px">AUSVERKAUFT</span>`:""}</div><div class="rec-desc">${p.beschreibung||""}</div></div>
-      <div class="rec-price">${p.preis>0?p.preis.toFixed(2)+" €":"Anfrage"}</div>
-    </div>`;}).join("")
+    ?recs.map(p=>{
+      const enc=encodeURIComponent(JSON.stringify(p));
+      const clickFn=p.soldOut?"":"openModal(JSON.parse(decodeURIComponent(\'"+enc+"\'"+")))";
+      const soldBadge=p.soldOut?' <span style="background:var(--red);color:#fff;font-size:9px;border-radius:4px;padding:1px 5px">AUSVERKAUFT</span>':"";
+      return`<div class="rec-card${p.soldOut?" sold":""}" onclick="${clickFn}">
+        <div class="rec-emoji">${p.emoji||"🎈"}</div>
+        <div class="rec-info">
+          <div class="rec-name">${p.name}${soldBadge}</div>
+          <div class="rec-desc">${p.beschreibung||""}</div>
+        </div>
+        <div class="rec-price">${p.preis>0?p.preis.toFixed(2)+" €":"Anfrage"}</div>
+      </div>`;}).join("")
     :`<div style="color:var(--muted);font-size:13px">Sprich einen Mitarbeiter an — wir helfen persönlich!</div>`;
   sec.style.display="block";
 }

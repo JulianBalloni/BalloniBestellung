@@ -590,18 +590,22 @@ function allProducts(){return CATALOGS.flatMap(c=>c.pages.flatMap(p=>(p.hotspots
 // ═══════════════════════════════════════════════════
 // TAGESNUMMER via Firebase
 // ═══════════════════════════════════════════════════
-async function getNextNumber(){
+async function getNextNumber(typ){
+  // typ = "bestellung" (startet bei 100) oder "wunsch" (startet bei 1000)
+  const start = typ==="wunsch" ? 1000 : 100;
+  const today=new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const key="tagesnummer/"+today+"/"+typ;
   if(!db){
-    // Offline-Fallback: lokaler Zähler
-    const key="balloni_nr_"+new Date().toISOString().slice(0,10);
-    const next=(parseInt(localStorage.getItem(key)||"0"))+1;
-    localStorage.setItem(key,next);
+    // Offline-Fallback
+    const lsKey="balloni_"+typ+"_"+today;
+    const next=Math.max(start, (parseInt(localStorage.getItem(lsKey)||String(start-1)))+1);
+    localStorage.setItem(lsKey, next);
     return next;
   }
-  const today=new Date().toISOString().slice(0,10).replace(/-/g,"");
-  const ref=db.ref("tagesnummer/"+today);
+  const ref=db.ref(key);
   const snap=await ref.once("value");
-  const next=(snap.val()||0)+1;
+  const current=snap.val()||start-1;
+  const next=current+1;
   await ref.set(next);
   return next;
 }
@@ -1101,7 +1105,7 @@ function chCQ(i,d){cart[i].menge=Math.max(1,cart[i].menge+d);renderCart()}
 function rmCart(i){cart.splice(i,1);updateCartBadge();renderCart()}
 
 async function startCheckout(){
-  const nummer=await getNextNumber();
+  const nummer=await getNextNumber("bestellung");
   const sum=cart.reduce((s,it)=>s+(it.spot.preis||0)*it.menge,0);
   // Bestellung in Firebase speichern
   if(db) await db.ref("bestellungen").push({
@@ -1122,8 +1126,9 @@ async function startCheckout(){
     })),
     status:"offen"
   });
-  // Zahlung starten
-  showPayment(sum,nummer);
+  // Nummer anzeigen dann bezahlen
+  showNumberScreen(nummer,"bestellung");
+  setTimeout(()=>showPayment(sum,nummer), 2000);
 }
 
 let currentOrderNummer=null;
@@ -1160,7 +1165,8 @@ function sumupSuccess(){
   cart=[];updateCartBadge();
   setTimeout(()=>{
     document.getElementById("sumup-modal").classList.remove("open");
-    resetAndHome();
+    // Show thank you briefly then reset
+    setTimeout(()=>resetAndHome(), 1000);
   },2500);
 }
 
@@ -1191,7 +1197,7 @@ function renderWish(){
 function rmWish(i){wishlist.splice(i,1);updateWishBadge();renderWish()}
 
 async function callStaff(){
-  const nummer=await getNextNumber();
+  const nummer=await getNextNumber("wunsch");
   // Wunschliste in Firebase speichern (für Statistik)
   if(db) await db.ref("wunschlisten").push({
     nummer,typ:"wunschliste",
@@ -1239,16 +1245,17 @@ function showNumberScreen(nummer,typ){
   document.getElementById("number-display").textContent=nummer;
   const isWunsch=typ==="wunsch";
   const nt=document.getElementById("number-type");
-  nt.textContent=isWunsch?"🌟 Beratungsanfrage":"🛒 Bestellung";
+  nt.textContent=isWunsch?"🌟 Beratungswunsch":"🛒 Bestellung";
   nt.className="number-type "+(isWunsch?"wunsch":"bestellung");
-  document.getElementById("number-info").textContent=isWunsch
-    ?"Ein Mitarbeiter wird Sie in Kürze aufrufen. Ihr Zettel enthält alle Ihre Wünsche."
-    :"Ihre Bestellung wird bearbeitet. Bitte bezahlen Sie am Gerät.";
+  document.getElementById("number-info").innerHTML=isWunsch
+    ?`<strong>Bitte merken Sie sich Ihre Nummer!</strong><br>Ein Mitarbeiter ruft Sie auf.<br>Ihr Zettel mit der Wunschliste wurde gedruckt.`
+    :`<strong>Bitte merken Sie sich Ihre Nummer!</strong><br>Die Zahlung startet gleich automatisch.<br>Halten Sie Ihr Handy oder Ihre Karte bereit.`;
   showScreen("number");
-  // Auto-reset after 8 seconds for next customer
   if(isWunsch){
+    // Wunsch: auto-reset nach 8 Sek
     setTimeout(()=>resetAndHome(), 8000);
   }
+  // Bestellung: SumUp öffnet sich nach 2 Sek (handled in startCheckout)
 }
 
 function resetAndHome(){

@@ -21,6 +21,7 @@ const FIREBASE_CONFIG = {
 };
 const ADMIN_PIN = "1234"; // ← hier deinen PIN setzen
 const APP_CONFIG = { ladenName:"BALLONI", ladenOrt:"Köln-Ehrenfeld" };
+const CLOUDINARY = { cloud: "dk8tdd7zb", preset: "balloni" };
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -589,36 +590,77 @@ function togglePlacing(){
   document.getElementById("btn-place").classList.toggle("placing",placing);
   document.getElementById("btn-place").textContent=placing?"✅ Klick = Pin setzen":"📍 Hotspot setzen";
 }
-function handlePageUpload(e){
+async function handlePageUpload(e){
   const files=Array.from(e.target.files);
   if(!files.length)return;
-  const cat=CATALOGS[currentCatIdx];
-  let loaded=0;
-  toast("⏳ "+files.length+" Seite(n) werden geladen...","gold");
-  // Sort files by name so pages are in order
+  // Sort by filename so pages come in order
   files.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-  files.forEach(file=>{
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      cat.pages.push({
-        type:"image",
-        src:ev.target.result,
-        label:file.name.replace(/\.[^.]+$/,""), // filename without extension
-        hotspots:[]
-      });
-      loaded++;
-      if(loaded===files.length){
-        rebuildBook();
-        toast("✅ "+loaded+" Seite(n) hinzugefügt!","green");
+  const cat=CATALOGS[currentCatIdx];
+  // Remove old image pages from this catalog (keep cover+demo only as fallback)
+  cat.pages=cat.pages.filter(p=>p.type==="cover");
+  let done=0;
+  // Show upload progress overlay
+  showUploadProgress(0,files.length);
+  for(const file of files){
+    try{
+      const url=await uploadToCloudinary(file);
+      const label=file.name.replace(/\.[^.]+$/,"");
+      cat.pages.push({type:"image",src:url,label,hotspots:[]});
+      done++;
+      showUploadProgress(done,files.length);
+      // Save to Firebase so pages persist after reload
+      if(db){
+        await db.ref("katalog/"+CATALOGS[currentCatIdx].id+"/pages").set(
+          cat.pages.filter(p=>p.type==="image").map(p=>({src:p.src,label:p.label||"",hotspots:p.hotspots||[]}))
+        );
       }
-    };
-    reader.onerror=()=>{
-      loaded++;
+    }catch(err){
+      done++;
+      showUploadProgress(done,files.length);
+      console.error("Upload error:",file.name,err);
       toast("❌ Fehler bei: "+file.name,"gold");
-    };
-    reader.readAsDataURL(file);
-  });
+    }
+  }
+  hideUploadProgress();
+  rebuildBook();
+  toast("✅ "+done+" von "+files.length+" Seiten hochgeladen!","green");
   e.target.value="";
+}
+
+async function uploadToCloudinary(file){
+  const fd=new FormData();
+  fd.append("file",file);
+  fd.append("upload_preset",CLOUDINARY.preset);
+  fd.append("folder","balloni-katalog");
+  const res=await fetch("https://api.cloudinary.com/v1_1/"+CLOUDINARY.cloud+"/image/upload",{method:"POST",body:fd});
+  if(!res.ok)throw new Error("Cloudinary HTTP "+res.status);
+  const data=await res.json();
+  if(!data.secure_url)throw new Error("No URL in response");
+  return data.secure_url;
+}
+
+function showUploadProgress(done,total){
+  let el=document.getElementById("upload-overlay");
+  if(!el){
+    el=document.createElement("div");
+    el.id="upload-overlay";
+    el.style.cssText="position:fixed;inset:0;background:rgba(13,8,32,0.92);z-index:800;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px";
+    document.body.appendChild(el);
+  }
+  const pct=total>0?Math.round((done/total)*100):0;
+  el.innerHTML=`
+    <div style="font-size:48px">☁️</div>
+    <div style="color:#FFD700;font-size:20px;font-weight:700">Seiten werden hochgeladen…</div>
+    <div style="color:rgba(255,255,255,0.6);font-size:15px">${done} von ${total} fertig</div>
+    <div style="width:280px;background:rgba(255,255,255,0.1);border-radius:20px;overflow:hidden;height:12px">
+      <div style="width:${pct}%;background:#FFD700;height:100%;border-radius:20px;transition:width 0.3s"></div>
+    </div>
+    <div style="color:#FFD700;font-size:18px;font-weight:800">${pct}%</div>
+    <div style="color:rgba(255,255,255,0.4);font-size:12px">Bitte nicht schließen</div>`;
+}
+function hideUploadProgress(){
+  const el=document.getElementById("upload-overlay");
+  if(el)el.remove();
 }
 function clearPages(){
   if(!confirm("Alle hochgeladenen Seiten löschen? Hotspots bleiben erhalten."))return;
@@ -1135,8 +1177,24 @@ function toast(msg,type="gold"){
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
-window.addEventListener("load",()=>{
+async function loadSavedPages(){
+  if(!db)return;
+  for(const cat of CATALOGS){
+    try{
+      const snap=await db.ref("katalog/"+cat.id+"/pages").once("value");
+      const saved=snap.val();
+      if(saved&&saved.length){
+        // Replace image pages with saved ones, keep cover
+        cat.pages=cat.pages.filter(p=>p.type==="cover");
+        saved.forEach(p=>cat.pages.push({type:"image",src:p.src,label:p.label||"",hotspots:p.hotspots||[]}));
+      }
+    }catch(e){console.warn("Could not load pages for",cat.id,e);}
+  }
+}
+
+window.addEventListener("load",async()=>{
   buildCatTabs();
+  await loadSavedPages();
   setTimeout(()=>loadCatalog(0,document.querySelector(".cat-tab")),150);
   initAdvisor();
 });

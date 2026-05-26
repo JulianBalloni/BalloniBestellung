@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BALLONI — Mitarbeiter Display</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#FFD700;--dark:#0a0f1a;--green:#4CAF50;--orange:#FF8C00;--red:#f44336;--blue:#2196F3;--surface:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.1)}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:#fff;min-height:100vh;display:flex;flex-direction:column}
+
+/* HEADER */
+#header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-text{font-size:18px;font-weight:800;color:var(--gold)}
+.logo-sub{font-size:10px;color:rgba(255,200,0,0.5);letter-spacing:2px;text-transform:uppercase}
+#clock{font-size:22px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+#stats{display:flex;gap:16px;align-items:center}
+.stat{text-align:center}
+.stat-num{font-size:22px;font-weight:800;color:var(--gold)}
+.stat-label{font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px}
+
+/* LAYOUT */
+#main{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;overflow:hidden}
+.col{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden}
+.col:last-child{border-right:none}
+.col-header{padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.col-title{font-size:14px;font-weight:700}
+.col-count{background:rgba(255,255,255,0.1);border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700}
+.col-body{flex:1;overflow-y:auto;padding:10px}
+
+/* Spalten-Farben */
+.col-aufpusten .col-header{background:rgba(33,150,243,0.08)}
+.col-aufpusten .col-title{color:#64B5F6}
+.col-aufpusten .col-count{background:rgba(33,150,243,0.2);color:#64B5F6}
+.col-bemalen .col-header{background:rgba(156,39,176,0.08)}
+.col-bemalen .col-title{color:#CE93D8}
+.col-bemalen .col-count{background:rgba(156,39,176,0.2);color:#CE93D8}
+.col-kasse .col-header{background:rgba(76,175,80,0.08)}
+.col-kasse .col-title{color:#81C784}
+.col-kasse .col-count{background:rgba(76,175,80,0.2);color:#81C784}
+
+/* Karten */
+.order-card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:13px;margin-bottom:9px;animation:slideIn .3s ease}
+@keyframes slideIn{from{transform:translateX(-20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.card-num{font-size:24px;font-weight:900;color:var(--gold)}
+.card-time{font-size:11px;color:rgba(255,255,255,0.4)}
+.card-type{font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px}
+.card-type.bestellung{background:rgba(76,175,80,0.2);color:#81C784}
+.card-type.wunschliste{background:rgba(255,140,0,0.2);color:#FFB74D}
+.artikel-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.artikel-row{background:rgba(255,255,255,0.04);border-radius:9px;padding:8px 10px;font-size:13px;display:flex;gap:8px;align-items:flex-start}
+.art-emoji{font-size:18px;flex-shrink:0}
+.art-info{flex:1}
+.art-name{font-weight:600}
+.art-detail{font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px}
+.art-menge{font-weight:800;color:var(--gold);font-size:14px;flex-shrink:0}
+.badge{display:inline-block;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;margin-right:4px}
+.badge-helium{background:rgba(33,150,243,0.25);color:#64B5F6}
+.badge-aufschrift{background:rgba(156,39,176,0.25);color:#CE93D8}
+.badge-farbe{border-radius:50%;width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:3px}
+.card-footer{display:flex;gap:7px;align-items:center}
+.card-summe{flex:1;font-size:16px;font-weight:800;color:var(--gold)}
+.done-btn{background:rgba(76,175,80,0.15);border:1px solid rgba(76,175,80,0.4);color:#81C784;border-radius:10px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.done-btn:hover{background:rgba(76,175,80,0.3)}
+.done-btn.done{background:var(--green);color:#fff;border-color:var(--green)}
+
+/* Leer-Status */
+.empty-col{text-align:center;color:rgba(255,255,255,0.2);margin-top:50px;font-size:13px}
+.empty-col .ei{font-size:40px;margin-bottom:10px}
+
+/* NEU-Indikator */
+.new-badge{background:var(--red);color:#fff;font-size:9px;font-weight:800;border-radius:8px;padding:2px 7px;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* Sound toggle */
+#sound-btn{background:var(--surface);border:1px solid var(--border);color:rgba(255,255,255,.6);border-radius:9px;padding:6px 12px;font-size:12px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="logo">
+    <span style="font-size:22px">🎈</span>
+    <div><div class="logo-text">BALLONI</div><div class="logo-sub">Mitarbeiter-Display</div></div>
+  </div>
+  <div id="stats">
+    <div class="stat"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Heute gesamt</div></div>
+    <div class="stat"><div class="stat-num" id="stat-offen">0</div><div class="stat-label">Offen</div></div>
+    <div class="stat"><div class="stat-num" id="stat-umsatz">0,00 €</div><div class="stat-label">Umsatz heute</div></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button id="sound-btn" onclick="toggleSound()">🔔 Ton an</button>
+    <div id="clock">--:--</div>
+  </div>
+</div>
+
+<div id="main">
+  <!-- AUFPUSTEN -->
+  <div class="col col-aufpusten">
+    <div class="col-header">
+      <span style="font-size:20px">🫧</span>
+      <div class="col-title">Aufpusten / Helium</div>
+      <div class="col-count" id="count-aufpusten">0</div>
+    </div>
+    <div class="col-body" id="col-aufpusten"></div>
+  </div>
+
+  <!-- BEMALEN -->
+  <div class="col col-bemalen">
+    <div class="col-header">
+      <span style="font-size:20px">✏️</span>
+      <div class="col-title">Bemalen / Aufschrift</div>
+      <div class="col-count" id="count-bemalen">0</div>
+    </div>
+    <div class="col-body" id="col-bemalen"></div>
+  </div>
+
+  <!-- KASSE / ÜBERSICHT -->
+  <div class="col col-kasse">
+    <div class="col-header">
+      <span style="font-size:20px">💳</span>
+      <div class="col-title">Kasse / Übersicht</div>
+      <div class="col-count" id="count-kasse">0</div>
+    </div>
+    <div class="col-body" id="col-kasse"></div>
+  </div>
+</div>
+
+<!-- Ton-Element -->
+<audio id="ding" preload="auto">
+  <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2o0HjSR0u7YkVUjIlSc1e3dkkwhHD6Kzfb2nVMeGieI3/n1nk8dGCqJ4vj4m0odFyx1z/D0mEkgFjGE5+zqkEYlGDZ57d/YfzcoJlaJ6+bQfDMrKGGk7OLJdisvNn614szIcSotPWbJ9NKpYSIuQHb38beBRCA1O37t6bmCTR80PoHx5LS6alk8LUKdyLW1oFk0MFih17WveVk0MF+z2MigeVY1LV633r+jcFQ3LGnH5tmtcUszNGvS6+OkcUUwR3TU5+GfdUIoSojg3OeMYTkuXqHQybF7UycrWqfL0MKBVSkrXL7a38yNXCUvWLLn7tF+Oy0zZ9fy1ox2NSs3cNXixHtFNylYweyuimM5LUFqxuashmg8M2HR4cqJXS0nW8T52ZV3PS1Aacfeq4FVKytcxuenjHE+MkFnyOqxg1UoLlbJ7rGCUiQuWMjyuIdqPzdDaMvhsYJYLS5PuOqrgWU0QlNvzem2il48Pltv0ueugWA1PFqCzeSzh107QFqJ1+i4h1gxRmGO2ui9i1QqQWmX2/C9ilMqP2mc5fW7iU4nRXGq4e+5hk0rRXae5u+6h0spQnip6fG5h0gpQn6u6vG4hkYnRYGx6vC3hUUoRYS06e+2g0MnRYe36O61gUImR4q66O+0gUApSo+96u+0f0ArSpC96++zf0AqSZK+6u+ygD8qSZS/6u+xgD8qSZW/6e+ygD8rSZXA6e+ygEArSpbA6fCzgEAsSZfA6PCzgUAsSZfB6PCzgUAsSZfB5/CzgUAtSZfB5/C0gUAuSJjC5/C0gkAuSJjC5vC0gkAvSJjD5vC1gkAv" type="audio/wav"/>
+</audio>
+
+<script>
+firebase.initializeApp(FIREBASE_CONFIG);
+const db=firebase.database();
+
+let soundOn=false;
+let seenIds=new Set();
+let statsToday={total:0,offen:0,umsatz:0};
+
+function toggleSound(){
+  soundOn=!soundOn;
+  document.getElementById("sound-btn").textContent=soundOn?"🔔 Ton an":"🔕 Ton aus";
+}
+function playDing(){
+  if(!soundOn)return;
+  // Einfacher Ton via AudioContext
+  try{
+    const ctx=new AudioContext();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(880,ctx.currentTime);
+    osc.frequency.setValueAtTime(660,ctx.currentTime+0.1);
+    gain.gain.setValueAtTime(0.3,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
+    osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.5);
+  }catch(e){}
+}
+
+// Uhr
+function updateClock(){
+  document.getElementById("clock").textContent=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+}
+setInterval(updateClock,1000);updateClock();
+
+// Bestellungen live hören
+function listenOrders(){
+  const today=new Date().toLocaleDateString("de-DE");
+  db.ref("bestellungen").on("value",snap=>{
+    const data=snap.val()||{};
+    const orders=Object.entries(data).map(([k,v])=>({key:k,...v}))
+      .filter(o=>o.datum===today)
+      .sort((a,b)=>a.zeitstempel-b.zeitstempel);
+
+    // Neue Bestellungen erkennen
+    orders.forEach(o=>{
+      if(!seenIds.has(o.key)){seenIds.add(o.key);if(seenIds.size>1)playDing();}
+    });
+
+    renderColumns(orders);
+    updateStats(orders);
+  });
+}
+
+function renderColumns(orders){
+  const offen=orders.filter(o=>o.status!=="fertig");
+
+  // Aufpusten: Artikel die Helium brauchen (alles mit Ballon)
+  const aufpusten=offen.filter(o=>(o.artikel||[]).some(a=>a.hatHelium!==false));
+  // Bemalen: Artikel mit Aufschrift
+  const bemalen=offen.filter(o=>(o.artikel||[]).some(a=>a.hatAufschrift||a.aufschrift));
+  // Kasse: alle offenen Bestellungen
+  const kasse=offen;
+
+  renderCol("aufpusten",aufpusten,o=>{
+    const bItems=(o.artikel||[]).filter(a=>a.hatHelium!==false);
+    return bItems.map(a=>`<div class="artikel-row">
+      <div class="art-emoji">${a.emoji||"🎈"}</div>
+      <div class="art-info"><div class="art-name">${a.name}</div>
+        ${a.aufschrift?`<div class="art-detail">✏️ ${a.aufschrift}</div>`:""}
+        ${a.farbe?`<div class="art-detail">🎨 ${a.farbe}</div>`:""}
+      </div>
+      <div class="art-menge">${a.menge}×</div>
+    </div>`).join("");
+  });
+
+  renderCol("bemalen",bemalen,o=>{
+    const bItems=(o.artikel||[]).filter(a=>a.hatAufschrift||a.aufschrift);
+    return bItems.map(a=>`<div class="artikel-row">
+      <div class="art-emoji">${a.emoji||"🎈"}</div>
+      <div class="art-info">
+        <div class="art-name">${a.name}</div>
+        <div class="art-detail" style="color:#CE93D8;font-weight:600">✏️ „${a.aufschrift}"</div>
+        ${a.farbe?`<div class="art-detail">🎨 ${a.farbe}</div>`:""}
+      </div>
+      <div class="art-menge">${a.menge}×</div>
+    </div>`).join("");
+  });
+
+  renderCol("kasse",kasse,o=>{
+    return(o.artikel||[]).map(a=>`<div class="artikel-row">
+      <div class="art-emoji">${a.emoji||"🎈"}</div>
+      <div class="art-info">
+        <div class="art-name">${a.name} <span class="art-menge" style="font-size:12px">${a.menge}×</span></div>
+        <div class="art-detail">
+          ${a.aufschrift?`<span class="badge badge-aufschrift">✏️ ${a.aufschrift}</span>`:""}
+          ${a.farbe?`<span class="badge-farbe" style="background:#888"></span>${a.farbe}`:""}
+        </div>
+      </div>
+      <div style="color:var(--gold);font-weight:700;font-size:13px">${a.preis?(a.preis*a.menge).toFixed(2)+" €":""}</div>
+    </div>`).join("");
+  });
+}
+
+function renderCol(id,orders,itemsFn){
+  const col=document.getElementById("col-"+id);
+  document.getElementById("count-"+id).textContent=orders.length;
+  if(!orders.length){
+    col.innerHTML=`<div class="empty-col"><div class="ei">✅</div>Alles erledigt!</div>`;
+    return;
+  }
+  col.innerHTML=orders.map(o=>`
+    <div class="order-card" id="card-${id}-${o.key}">
+      <div class="card-header">
+        <div>
+          <span class="card-num">#${o.nummer}</span>
+          <span class="card-type bestellung">Bestellung</span>
+        </div>
+        <div style="text-align:right">
+          <div class="card-time">⏱ ${o.uhrzeit}</div>
+          ${!seenIds.has(o.key+"-seen")?`<span class="new-badge">NEU</span>`:""}
+        </div>
+      </div>
+      <div class="artikel-list">${itemsFn(o)}</div>
+      <div class="card-footer">
+        <div class="card-summe">${o.summe?(o.summe.toFixed(2).replace(".",",")+` €`):""}</div>
+        <button class="done-btn" onclick="markDone('${o.key}',this)">✓ Fertig</button>
+      </div>
+    </div>`).join("");
+}
+
+function markDone(key,btn){
+  btn.textContent="✅ Erledigt";btn.classList.add("done");btn.disabled=true;
+  db.ref(`bestellungen/${key}/status`).set("fertig");
+}
+
+function updateStats(orders){
+  const today=new Date().toLocaleDateString("de-DE");
+  const todayOrders=orders;
+  const offen=todayOrders.filter(o=>o.status!=="fertig").length;
+  const umsatz=todayOrders.filter(o=>o.status==="fertig").reduce((s,o)=>s+(o.summe||0),0);
+  document.getElementById("stat-total").textContent=todayOrders.length;
+  document.getElementById("stat-offen").textContent=offen;
+  document.getElementById("stat-umsatz").textContent=umsatz.toFixed(2).replace(".",",")+` €`;
+}
+
+// Wunschlisten-Statistik (nur zählen, nicht anzeigen)
+function listenWunschlisten(){
+  // Wunschlisten erscheinen NUR auf dem Bon — hier nur für Statistik
+  // (optional: Zähler ergänzen wenn gewünscht)
+}
+
+window.addEventListener("load",()=>{
+  listenOrders();
+  listenWunschlisten();
+});
+</script>
+</body>
+</html>

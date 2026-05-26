@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>BALLONI — Katalog & Bestellung</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#FFD700;--dark:#0d0820;--dark2:#1a1035;
+  --surface:rgba(255,255,255,0.06);--border:rgba(255,215,0,0.22);
+  --muted:rgba(255,255,255,0.42);--text:#fff;
+  --red:#ff4d4d;--green:#4CAF50;--orange:#FF8C00;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+#header{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:rgba(255,255,255,0.04);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;gap:8px}
+.logo{display:flex;align-items:center;gap:10px;cursor:pointer;flex-shrink:0}
+.logo-text{font-size:19px;font-weight:800;color:var(--gold);letter-spacing:1px}
+.logo-sub{font-size:9px;color:rgba(255,200,0,0.5);letter-spacing:3px;text-transform:uppercase}
+.nav-tabs{display:flex;gap:5px;flex-wrap:wrap}
+.nav-btn{background:var(--surface);color:var(--text);border:1px solid transparent;border-radius:10px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap}
+.nav-btn.active{background:var(--gold);color:#0d0820}
+.nav-btn.admin-btn{border-color:rgba(255,215,0,0.25);color:rgba(255,215,0,0.45);font-size:11px}
+.nav-btn.admin-btn.active{background:rgba(255,165,0,0.9);color:#0d0820}
+.cart-badge{background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:700;margin-left:3px}
+.wish-badge{background:var(--orange);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:700;margin-left:3px}
+
+/* ── SCREENS ── */
+#main{flex:1;overflow:hidden;position:relative}
+.screen{display:none;width:100%;height:100%;flex-direction:column}
+.screen.active{display:flex}
+
+/* ── KATALOG ── */
+#screen-catalog{align-items:center;background:radial-gradient(ellipse at center,#1e1245 0%,#0d0820 70%);padding:8px;gap:6px}
+#catalog-tabs{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;flex-shrink:0}
+.cat-tab{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:18px;padding:5px 13px;font-size:12px;cursor:pointer;transition:all .15s}
+.cat-tab.active{background:var(--gold);color:#0d0820;font-weight:700;border-color:var(--gold)}
+#flipbook-wrap{position:relative;display:flex;align-items:center;justify-content:center;flex:1;width:100%;min-height:0}
+.flip-btn{background:rgba(255,215,0,0.12);border:1px solid var(--border);color:var(--gold);border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+#flip-controls{display:flex;align-items:center;gap:10px;flex-shrink:0;padding:3px 0 6px}
+#page-indicator{font-size:12px;color:var(--muted);min-width:70px;text-align:center}
+.page{background:#fff;overflow:hidden;position:relative}
+.page-cover{background:linear-gradient(145deg,#1a0a40,#2d1b6e);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.page-cover h1{font-size:22px;font-weight:800;color:var(--gold);text-align:center;line-height:1.2;white-space:pre-line}
+.page-cover p{font-size:12px;color:rgba(255,255,255,0.5);text-align:center;padding:0 14px}
+.page img{width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5}
+.hpin{position:absolute;transform:translate(-50%,-50%);z-index:20;cursor:pointer}
+.hpin .ring{position:absolute;inset:-8px;border-radius:50%;border:2px solid var(--gold);opacity:.4;animation:ping 2s ease-out infinite}
+.hpin .dot{width:26px;height:26px;border-radius:50%;background:var(--gold);border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#0d0820;transition:transform .15s}
+.hpin:hover .dot{transform:scale(1.2)}
+.hpin.sold-out .dot{background:#888;border-color:#ccc}
+.hpin.sold-out .ring{display:none}
+.hpin .tip{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);background:rgba(13,8,32,.94);border:1px solid var(--border);border-radius:8px;padding:4px 9px;font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;text-align:center}
+.hpin:hover .tip{opacity:1}
+.sold-badge-sm{background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px}
+@keyframes ping{0%{transform:scale(.8);opacity:.6}100%{transform:scale(2.4);opacity:0}}
+
+/* Admin pin edit */
+.hpin.admin-mode .dot{background:rgba(255,165,0,.85);font-size:10px}
+.placing-cursor{cursor:crosshair!important}
+
+/* ── WARENKORB ── */
+#screen-cart{overflow-y:auto;padding:20px;align-items:center}
+.cart-inner{width:100%;max-width:580px}
+.cart-inner h2{color:var(--gold);margin-bottom:16px;font-size:20px}
+.order-item{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start}
+.oi-info{flex:1}
+.oi-name{font-weight:700;font-size:14px;margin-bottom:4px}
+.oi-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+.otag{background:rgba(255,215,0,.1);border:1px solid var(--border);border-radius:7px;padding:2px 8px;font-size:11px}
+.qty-row{display:flex;align-items:center;gap:5px}
+.qty-btn{background:rgba(255,255,255,.12);border:none;color:#fff;width:26px;height:26px;border-radius:7px;cursor:pointer;font-size:15px}
+.oi-price{color:var(--gold);font-weight:700;font-size:17px;text-align:right;white-space:nowrap}
+.oi-del{background:none;border:none;color:rgba(255,100,100,.5);cursor:pointer;font-size:17px;margin-top:3px}
+.total-row{border-top:1px solid var(--border);padding-top:13px;margin-top:5px;display:flex;justify-content:space-between;align-items:center}
+.total-row span:first-child{font-size:16px}
+.total-row span:last-child{font-size:24px;color:var(--gold);font-weight:800}
+.checkout-btn{width:100%;background:var(--gold);color:#0d0820;border:none;border-radius:14px;padding:16px;font-size:17px;font-weight:800;cursor:pointer;margin-top:16px;transition:opacity .2s}
+.checkout-btn:disabled{opacity:.4;cursor:default}
+
+/* ── WUNSCHLISTE ── */
+#screen-wish{overflow-y:auto;padding:20px;align-items:center}
+.wish-inner{width:100%;max-width:580px}
+.wish-inner h2{color:var(--orange);margin-bottom:6px;font-size:20px}
+.wish-subtitle{color:var(--muted);font-size:13px;margin-bottom:16px}
+.call-staff-btn{width:100%;background:var(--orange);color:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:800;cursor:pointer;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:10px}
+
+/* ── BERATER ── */
+#screen-advisor{overflow-y:auto;padding:18px}
+.adv-wrap{max-width:660px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.adv-section{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px}
+.adv-title{color:var(--gold);font-size:14px;font-weight:700;margin-bottom:12px}
+.anlass-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.anlass-btn{background:rgba(255,255,255,.05);border:2px solid transparent;border-radius:13px;padding:13px 6px;text-align:center;cursor:pointer;transition:all .18s}
+.anlass-btn:hover{background:rgba(255,215,0,.08);border-color:rgba(255,215,0,.25)}
+.anlass-btn.active{background:rgba(255,215,0,.14);border-color:var(--gold)}
+.anlass-btn .ae{font-size:28px;display:block;margin-bottom:5px}
+.anlass-btn .al{font-size:11px;font-weight:600}
+.rec-card{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:11px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.rec-card:hover{background:rgba(255,215,0,.07);border-color:rgba(255,215,0,.35)}
+.rec-card.sold{opacity:.4;cursor:default}
+.rec-emoji{font-size:24px;flex-shrink:0}
+.rec-info{flex:1}
+.rec-name{font-size:13px;font-weight:700}
+.rec-desc{font-size:11px;color:var(--muted);margin-top:1px}
+.rec-price{color:var(--gold);font-weight:700;font-size:15px;flex-shrink:0}
+.adv-input{width:100%;background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:11px;padding:10px 13px;color:#fff;font-size:14px;outline:none}
+.ex-q{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:16px;padding:5px 12px;font-size:11px;cursor:pointer;margin:3px}
+.ex-q:hover{color:var(--gold);border-color:rgba(255,215,0,.3)}
+#adv-answer{display:none;margin-top:12px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:11px;padding:13px;font-size:13px;line-height:1.65}
+
+/* ── NUMMER-SCREEN ── */
+#screen-number{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
+.number-display{font-size:120px;font-weight:900;color:var(--gold);line-height:1;margin:20px 0;text-shadow:0 0 40px rgba(255,215,0,0.3)}
+.number-label{font-size:16px;color:var(--muted);margin-bottom:8px}
+.number-type{font-size:14px;padding:6px 18px;border-radius:20px;font-weight:700;margin-bottom:24px}
+.number-type.bestellung{background:rgba(76,175,80,.15);color:var(--green);border:1px solid rgba(76,175,80,.3)}
+.number-type.wunsch{background:rgba(255,140,0,.15);color:var(--orange);border:1px solid rgba(255,140,0,.3)}
+.number-info{color:rgba(255,255,255,.6);font-size:14px;line-height:1.7;max-width:400px;margin:0 auto 24px}
+.back-home-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:11px 28px;font-size:14px;cursor:pointer;margin-top:8px}
+
+/* ── PAYMENT SCREEN ── */
+#screen-payment{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center;gap:20px}
+.pay-amount{font-size:56px;font-weight:900;color:var(--gold)}
+.pay-info{color:var(--muted);font-size:15px;max-width:360px}
+.pay-nfc{font-size:80px;animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.1);opacity:.7}}
+.pay-status{font-size:16px;font-weight:700;padding:10px 24px;border-radius:20px}
+.pay-status.waiting{background:rgba(255,215,0,.1);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
+.pay-status.success{background:rgba(76,175,80,.15);color:var(--green);border:1px solid rgba(76,175,80,.3)}
+.pay-manual{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:11px;padding:10px 20px;font-size:13px;cursor:pointer;margin-top:10px}
+
+/* ── MODAL ── */
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:500;align-items:center;justify-content:center;padding:18px}
+#modal-overlay.open{display:flex}
+#modal-box{background:linear-gradient(135deg,#1e1035,#0d0820);border:1px solid rgba(255,215,0,.45);border-radius:22px;padding:24px;max-width:400px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.7);max-height:90vh;overflow-y:auto}
+.mprog{display:flex;gap:4px;margin-bottom:18px}
+.mbar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.1);transition:background .3s}
+.mbar.done{background:var(--gold)}.mbar.cur{background:rgba(255,215,0,.6)}
+.mlabel{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.mtitle{font-size:19px;font-weight:700;color:var(--gold);margin-bottom:10px}
+.mdesc{color:rgba(255,255,255,.72);font-size:13px;line-height:1.6;margin-bottom:12px}
+.mprice{font-size:26px;color:var(--gold);font-weight:800;margin-bottom:16px}
+.minput{width:100%;background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:11px;padding:11px 14px;color:#fff;font-size:15px;outline:none;margin-bottom:5px}
+.mcc{font-size:11px;color:var(--muted);text-align:right;margin-bottom:13px}
+.cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:15px}
+.cswatch{cursor:pointer;text-align:center;padding:7px 3px;border-radius:10px;border:2px solid transparent;transition:all .15s}
+.cswatch.sel{border-color:var(--gold);background:rgba(255,215,0,.1)}
+.cdot{width:30px;height:30px;border-radius:50%;margin:0 auto 4px;border:2px solid rgba(255,255,255,.2)}
+.cname{font-size:10px;color:var(--muted)}
+.cswatch.sel .cname{color:var(--gold)}
+.qbig{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:14px}
+.qbig-btn{width:44px;height:44px;border-radius:11px;background:var(--surface);border:none;color:#fff;font-size:24px;cursor:pointer}
+.qbig-num{font-size:40px;font-weight:800;color:var(--gold);min-width:52px;text-align:center}
+.mtotal{text-align:center;color:var(--gold);font-size:19px;font-weight:700;margin-bottom:16px}
+.msum{background:rgba(255,215,0,.06);border:1px solid var(--border);border-radius:11px;padding:10px;margin-bottom:14px;font-size:12px}
+.msum-name{font-weight:700;margin-bottom:4px}
+.msum-tag{color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px}
+.cmini{width:10px;height:10px;border-radius:50%;display:inline-block}
+.mbtn-row{display:flex;gap:8px}
+.btn-gold{flex:1;background:var(--gold);color:#0d0820;border:none;border-radius:11px;padding:11px;font-size:14px;font-weight:800;cursor:pointer}
+.btn-gold:disabled{opacity:.4;cursor:default}
+.btn-ghost{background:rgba(255,255,255,.09);color:#fff;border:none;border-radius:11px;padding:11px 13px;font-size:13px;cursor:pointer}
+/* Ziel-Auswahl im Modal */
+.dest-row{display:flex;gap:9px;margin-bottom:14px}
+.dest-btn{flex:1;border:2px solid var(--border);border-radius:13px;padding:13px 8px;text-align:center;cursor:pointer;background:var(--surface);transition:all .18s}
+.dest-btn:hover{border-color:rgba(255,215,0,.4)}
+.dest-btn.sel-cart{border-color:var(--green);background:rgba(76,175,80,.1)}
+.dest-btn.sel-wish{border-color:var(--orange);background:rgba(255,140,0,.1)}
+.dest-btn .de{font-size:28px;display:block;margin-bottom:6px}
+.dest-btn .dl{font-size:13px;font-weight:700}
+.dest-btn .ds{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Sold-out modal */
+.sold-modal{text-align:center;padding:8px 0}
+
+/* Admin bar */
+#admin-bar{display:none;background:rgba(255,140,0,.07);border-bottom:1px solid rgba(255,165,0,.25);padding:7px 15px;flex-shrink:0;gap:8px;align-items:center;flex-wrap:wrap}
+#admin-bar.open{display:flex}
+.admin-info{font-size:12px;color:rgba(255,165,0,.75);flex:1}
+.abtn{background:rgba(255,165,0,.12);border:1px solid rgba(255,165,0,.35);color:rgba(255,200,0,.85);border-radius:9px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.abtn.placing{background:rgba(255,165,0,.3)}
+
+/* Edit panel */
+#edit-panel{display:none;position:fixed;right:0;top:0;bottom:0;width:280px;background:rgba(13,8,32,.97);border-left:1px solid var(--border);z-index:400;padding:16px;overflow-y:auto;flex-direction:column;gap:11px}
+#edit-panel.open{display:flex}
+#edit-panel h3{color:var(--gold);font-size:14px}
+.erow{display:flex;flex-direction:column;gap:4px}
+.erow label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+.erow input,.erow textarea,.erow select{background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:9px;padding:8px 10px;color:#fff;font-size:13px;outline:none;width:100%}
+.opt-row{display:flex;gap:6px;flex-wrap:wrap}
+.opt-check{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);transition:all .15s}
+.opt-check.on{background:rgba(255,215,0,.12);border-color:var(--gold);color:var(--gold)}
+.sold-toggle{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.sold-toggle.on{background:rgba(255,77,77,.1);border-color:var(--red)}
+.sold-dot{width:12px;height:12px;border-radius:50%;background:var(--muted);transition:background .2s}
+.sold-toggle.on .sold-dot{background:var(--red)}
+.save-btn{background:var(--gold);color:#0d0820;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:800;cursor:pointer;width:100%}
+.del-btn{background:rgba(255,80,80,.1);color:#ff6b6b;border:1px solid rgba(255,80,80,.25);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;width:100%}
+.close-edit{background:var(--surface);color:var(--muted);border:none;border-radius:10px;padding:7px;font-size:12px;cursor:pointer;width:100%}
+
+/* PIN modal */
+#pin-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.87);z-index:600;align-items:center;justify-content:center}
+#pin-modal.open{display:flex}
+#pin-box{background:var(--dark2);border:1px solid var(--border);border-radius:20px;padding:26px;max-width:300px;width:100%;text-align:center}
+#pin-box h3{color:var(--gold);font-size:17px;margin-bottom:5px}
+#pin-box p{color:var(--muted);font-size:13px;margin-bottom:18px}
+#pin-input{width:100%;background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:10px;padding:13px;color:#fff;font-size:20px;letter-spacing:8px;text-align:center;outline:none;margin-bottom:12px}
+#pin-error{color:var(--red);font-size:12px;margin-bottom:8px;min-height:16px}
+
+/* Upsell */
+#upsell-panel{display:none;position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#1e1035,#0d0820);border-top:2px solid var(--gold);padding:14px 18px;z-index:300;animation:slideUp .3s ease}
+#upsell-panel.open{display:block}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+#upsell-inner{max-width:660px;margin:0 auto}
+#upsell-title{color:var(--gold);font-size:13px;font-weight:700;margin-bottom:9px}
+#upsell-items{display:flex;gap:8px;flex-wrap:wrap}
+.up-chip{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);border-radius:10px;padding:7px 11px;font-size:12px;display:flex;gap:7px;align-items:center}
+.up-add{background:var(--gold);color:#0d0820;border:none;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer}
+#upsell-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--muted);font-size:19px;cursor:pointer}
+
+/* Toast */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);padding:9px 20px;border-radius:18px;font-weight:700;font-size:13px;z-index:999;transition:opacity .4s;pointer-events:none;white-space:nowrap}
+.toast.green{background:var(--green);color:#fff}
+.toast.gold{background:var(--gold);color:#0d0820}
+.toast.orange{background:var(--orange);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- PIN Modal -->
+<div id="pin-modal">
+  <div id="pin-box">
+    <h3>🔒 Admin-Zugang</h3>
+    <p>PIN eingeben</p>
+    <input id="pin-input" type="password" maxlength="8" placeholder="••••" onkeydown="if(event.key==='Enter')checkPin()"/>
+    <div id="pin-error"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-gold" onclick="checkPin()">Öffnen</button>
+      <button class="btn-ghost" onclick="closePinModal()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="logo" onclick="showScreen('catalog')">
+    <span style="font-size:24px">🎈</span>
+    <div><div class="logo-text">BALLONI</div><div class="logo-sub">Köln · Ehrenfeld</div></div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-btn active" id="tab-catalog" onclick="showScreen('catalog')">📖 Katalog</button>
+    <button class="nav-btn" id="tab-advisor" onclick="showScreen('advisor')">💬 Berater</button>
+    <button class="nav-btn" id="tab-cart" onclick="showScreen('cart')">🛒 Warenkorb<span class="cart-badge" id="cart-badge" style="display:none">0</span></button>
+    <button class="nav-btn" id="tab-wish" onclick="showScreen('wish')">🌟 Wunschliste<span class="wish-badge" id="wish-badge" style="display:none">0</span></button>
+    <button class="nav-btn admin-btn" id="tab-admin" onclick="openPinModal()">⚙️</button>
+  </div>
+</div>
+
+<!-- ADMIN BAR -->
+<div id="admin-bar">
+  <span class="admin-info">⚙️ Admin aktiv</span>
+  <button class="abtn" id="btn-place" onclick="togglePlacing()">📍 Hotspot setzen</button>
+  <button class="abtn" onclick="document.getElementById('cat-file').click()">📂 Seite hochladen</button>
+  <button class="abtn" onclick="exportData()">💾 Daten exportieren</button>
+  <button class="abtn" onclick="exitAdmin()">🔒 Beenden</button>
+  <input type="file" id="cat-file" accept="image/*" style="display:none" onchange="handlePageUpload(event)"/>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- KATALOG -->
+  <div id="screen-catalog" class="screen active">
+    <div id="catalog-tabs" style="padding:7px 14px 0"></div>
+    <div id="flipbook-wrap">
+      <button class="flip-btn" onclick="flipPrev()">‹</button>
+      <div id="flipbook"></div>
+      <button class="flip-btn" onclick="flipNext()">›</button>
+    </div>
+    <div id="flip-controls"><span id="page-indicator">Seite 1</span></div>
+  </div>
+
+  <!-- BERATER -->
+  <div id="screen-advisor" class="screen">
+    <div style="flex:1;overflow-y:auto;padding:16px">
+    <div class="adv-wrap">
+      <div class="adv-section">
+        <div class="adv-title">🎉 Für welchen Anlass sucht ihr?</div>
+        <div class="anlass-grid" id="anlass-grid"></div>
+      </div>
+      <div class="adv-section" id="rec-section" style="display:none">
+        <div class="adv-title" id="rec-title"></div>
+        <div id="rec-grid"></div>
+      </div>
+      <div class="adv-section">
+        <div class="adv-title">🤔 Spezielle Frage?</div>
+        <div style="margin-bottom:10px" id="ex-qs">
+          <button class="ex-q" onclick="askQ(this)">Was ist der Unterschied Latex / Folie?</button>
+          <button class="ex-q" onclick="askQ(this)">Wie lange hält Helium?</button>
+          <button class="ex-q" onclick="askQ(this)">Was passt zu einer Hawaii-Party?</button>
+          <button class="ex-q" onclick="askQ(this)">Deko für 100 Personen?</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input class="adv-input" id="adv-input" placeholder="Eigene Frage…" onkeydown="if(event.key==='Enter')submitQ()"/>
+          <button class="btn-gold" style="padding:0 16px;font-size:18px" onclick="submitQ()">→</button>
+        </div>
+        <div id="adv-answer"></div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- WARENKORB -->
+  <div id="screen-cart" class="screen">
+    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;justify-content:center">
+    <div class="cart-inner">
+      <h2>🛒 Warenkorb</h2>
+      <div id="cart-items"></div>
+      <div id="cart-empty" style="text-align:center;color:var(--muted);margin-top:50px">
+        <div style="font-size:50px">🛒</div>
+        <div style="margin-top:12px">Noch nichts im Warenkorb.<br>Tippe im Katalog auf ein Produkt!</div>
+      </div>
+      <div id="cart-total" style="display:none">
+        <div class="total-row"><span>Gesamt</span><span id="cart-total-price">0,00 €</span></div>
+        <button class="checkout-btn" onclick="startCheckout()">💳 Jetzt bestellen & bezahlen</button>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- WUNSCHLISTE -->
+  <div id="screen-wish" class="screen">
+    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;justify-content:center">
+    <div class="wish-inner">
+      <h2>🌟 Wunschliste</h2>
+      <div class="wish-subtitle">Merke Produkte und lass dich von einem Mitarbeiter beraten.</div>
+      <div id="wish-items"></div>
+      <div id="wish-empty" style="text-align:center;color:var(--muted);margin-top:40px">
+        <div style="font-size:50px">🌟</div>
+        <div style="margin-top:12px">Noch keine Wünsche gespeichert.</div>
+      </div>
+      <div id="wish-actions" style="display:none">
+        <div class="total-row" style="margin-bottom:0"><span>Artikel</span><span id="wish-count-total" style="color:var(--orange);font-size:20px;font-weight:800">0</span></div>
+        <button class="call-staff-btn" onclick="callStaff()">
+          🙋 Mitarbeiter rufen &amp; Nummer ziehen
+        </button>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- NUMMER-ANZEIGE -->
+  <div id="screen-number" class="screen">
+    <div class="number-label">Ihre Nummer</div>
+    <div class="number-display" id="number-display">—</div>
+    <div class="number-type" id="number-type"></div>
+    <div class="number-info" id="number-info"></div>
+    <button class="back-home-btn" onclick="resetAndHome()">← Zurück zum Katalog</button>
+  </div>
+
+  <!-- ZAHLUNG -->
+  <div id="screen-payment" class="screen">
+    <div style="color:var(--muted);font-size:14px">Bitte bezahlen</div>
+    <div class="pay-amount" id="pay-amount">0,00 €</div>
+    <div class="pay-nfc">📱</div>
+    <div class="pay-info">Halte dein Smartphone oder deine Karte an das Lesegerät</div>
+    <div class="pay-status waiting" id="pay-status">Warte auf Zahlung…</div>
+    <button class="pay-manual" onclick="payManual()">Zahlung manuell bestätigen (Mitarbeiter)</button>
+  </div>
+
+</div><!-- /main -->
+
+<!-- EDIT PANEL -->
+<div id="edit-panel">
+  <h3>Hotspot bearbeiten</h3>
+  <div class="erow"><label>Name</label><input id="e-name" placeholder="Produktname"/></div>
+  <div class="erow"><label>Beschreibung</label><textarea id="e-desc" rows="2" placeholder="Kurze Beschreibung"></textarea></div>
+  <div class="erow"><label>Preis (€)</label><input id="e-preis" type="number" step="0.01" placeholder="0.00"/></div>
+  <div class="erow"><label>Artikel-Nr.</label><input id="e-artnr" placeholder="optional"/></div>
+  <div class="erow">
+    <label>Optionen für Kunden</label>
+    <div class="opt-row">
+      <div class="opt-check" id="opt-beschriftung" onclick="toggleOpt('beschriftung')">✏️ Aufschrift</div>
+      <div class="opt-check" id="opt-farbe" onclick="toggleOpt('farbe')">🎨 Farbe</div>
+      <div class="opt-check" id="opt-menge" onclick="toggleOpt('menge')">🔢 Menge</div>
+    </div>
+  </div>
+  <div class="erow">
+    <label>Verfügbarkeit</label>
+    <div class="sold-toggle" id="sold-toggle" onclick="toggleSoldOut()">
+      <div class="sold-dot"></div>
+      <span id="sold-label">✅ Verfügbar</span>
+    </div>
+  </div>
+  <button class="save-btn" onclick="saveHotspot()">💾 Speichern</button>
+  <button class="del-btn" onclick="deleteHotspot()">🗑 Löschen</button>
+  <button class="close-edit" onclick="closeEditPanel()">Schließen</button>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div id="modal-box"><div class="mprog" id="mprog"></div><div id="mcontent"></div></div>
+</div>
+
+<!-- UPSELL -->
+<div id="upsell-panel">
+  <button id="upsell-close" onclick="closeUpsell()">✕</button>
+  <div id="upsell-inner">
+    <div id="upsell-title">💡 Passend dazu empfehlen wir:</div>
+    <div id="upsell-items"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════════════
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+
+// ═══════════════════════════════════════════════════
+// FARBEN
+// ═══════════════════════════════════════════════════
+const FARBEN=[
+  {name:"Rot",hex:"#E63946"},{name:"Rosa",hex:"#FFB3C6"},{name:"Pink",hex:"#FF6B9D"},
+  {name:"Lila",hex:"#9B5DE5"},{name:"Blau",hex:"#457B9D"},{name:"Hellblau",hex:"#90E0EF"},
+  {name:"Grün",hex:"#52B788"},{name:"Gelb",hex:"#FFD166"},{name:"Orange",hex:"#FB8500"},
+  {name:"Weiß",hex:"#F8F9FA"},{name:"Silber",hex:"#ADB5BD"},{name:"Gold",hex:"#FFD700"},
+];
+
+// ═══════════════════════════════════════════════════
+// KATALOG-DATEN
+// Reiter hier erweitern — type:'image' + src:'URL' für echte Seiten
+// ═══════════════════════════════════════════════════
+const CATALOGS=[
+  { id:"folien", name:"🎈 Folienballons", pages:[
+    {type:"cover",title:"Folienballon\nKatalog 2025",sub:"Entdecke unsere Kollektion"},
+    {type:"demo",bg:"#fce4ec",emoji:"❤️",label:"Herzen & Liebe",hotspots:[
+      {id:1,x:28,y:38,name:"Herz Folienballon Rot",preis:3.99,beschreibung:"45cm, selbstverschließend",emoji:"❤️",optionen:["farbe","menge"],soldOut:false},
+      {id:2,x:68,y:55,name:"Herz XXL Rose Gold",preis:5.49,beschreibung:"75cm, metallic Rose Gold",emoji:"💗",optionen:["menge"],soldOut:false},
+    ]},
+    {type:"demo",bg:"#e8f5e9",emoji:"🎂",label:"Geburtstag",hotspots:[
+      {id:3,x:25,y:42,name:"Zahl Folienballon",preis:5.49,beschreibung:"86cm, Gold oder Silber",emoji:"🔢",optionen:["beschriftung","menge"],soldOut:false},
+      {id:4,x:62,y:33,name:"Happy Birthday Banner",preis:4.99,beschreibung:"Buchstabengirlande gold",emoji:"🎉",optionen:["menge"],soldOut:true},
+      {id:5,x:80,y:63,name:"Sternballon Gold",preis:3.49,beschreibung:"Stern 45cm",emoji:"⭐",optionen:["farbe","menge"],soldOut:false},
+    ]},
+    {type:"demo",bg:"#ede7f6",emoji:"💍",label:"Hochzeit",hotspots:[
+      {id:6,x:35,y:42,name:"Mr & Mrs Folienballon",preis:6.99,beschreibung:"Set weiß/gold 45cm",emoji:"💍",optionen:["menge"],soldOut:false},
+    ]},
+  ]},
+  { id:"latex", name:"🎪 Latexballons", pages:[
+    {type:"cover",title:"Latexballon\nKollektion",sub:"Der Klassiker in allen Farben"},
+    {type:"demo",bg:"#e3f2fd",emoji:"🎨",label:"Einfarbige Latex",hotspots:[
+      {id:10,x:30,y:40,name:"Latexballon 30cm",preis:0.49,beschreibung:"Klassisch, viele Farben",emoji:"🎈",optionen:["farbe","menge"],soldOut:false},
+      {id:11,x:65,y:45,name:"Latexballon Metallic 30cm",preis:0.79,beschreibung:"Glänzend metallic Finish",emoji:"🎈",optionen:["farbe","menge"],soldOut:false},
+    ]},
+    {type:"demo",bg:"#f3e5f5",emoji:"🦄",label:"Kinder & Motive",hotspots:[
+      {id:12,x:30,y:40,name:"Einhorn Latexballon",preis:1.29,beschreibung:"Mit Einhorn-Aufdruck, 30cm",emoji:"🦄",optionen:["menge"],soldOut:false},
+      {id:13,x:68,y:50,name:"Dinosaurier Latex",preis:1.29,beschreibung:"Mit Dino-Aufdruck, 30cm",emoji:"🦕",optionen:["menge"],soldOut:false},
+    ]},
+  ]},
+  { id:"airwalker", name:"🚶 Airwalker", pages:[
+    {type:"cover",title:"Airwalker\n& Specials",sub:"Große Auftritte garantiert"},
+    {type:"demo",bg:"#fff8e1",emoji:"🦩",label:"Airwalker Figuren",hotspots:[
+      {id:20,x:40,y:50,name:"Airwalker Flamingo",preis:12.99,beschreibung:"Stehend ca. 110cm, mit Gewicht",emoji:"🦩",optionen:["menge"],soldOut:false},
+      {id:21,x:72,y:45,name:"Airwalker Einhorn",preis:14.99,beschreibung:"Stehend ca. 120cm, bunt",emoji:"🦄",optionen:["menge"],soldOut:false},
+    ]},
+  ]},
+  { id:"deko", name:"🎀 Deko & Zubehör", pages:[
+    {type:"cover",title:"Deko-Artikel\n& Zubehör",sub:"Das gewisse Etwas"},
+    {type:"demo",bg:"#fce4ec",emoji:"🎀",label:"Girlanden & Sets",hotspots:[
+      {id:30,x:35,y:45,name:"Ballongirlande DIY-Set",preis:12.99,beschreibung:"40 Ballons in 4 Farben + Netz",emoji:"🎀",optionen:["farbe","menge"],soldOut:false},
+      {id:31,x:70,y:55,name:"Konfetti-Kanone",preis:6.99,beschreibung:"5m Reichweite, Papier bunt",emoji:"🎊",optionen:["menge"],soldOut:false},
+    ]},
+    {type:"demo",bg:"#e3f2fd",emoji:"🫧",label:"Helium & Befüllen",hotspots:[
+      {id:32,x:35,y:48,name:"Helium Einwegflasche",preis:29.99,beschreibung:"~30 Latexballons (23cm)",emoji:"🫧",optionen:["menge"],soldOut:false},
+      {id:33,x:70,y:48,name:"Ballongewichte 5er Set",preis:3.99,beschreibung:"Dekorativ, versch. Farben",emoji:"⚓",optionen:["farbe","menge"],soldOut:false},
+    ]},
+  ]},
+];
+
+const ZUBEHOER=[
+  {id:"z1",name:"Helium Einwegflasche",preis:29.99,beschreibung:"~30 Latexballons (23cm)",emoji:"🫧",optionen:["menge"],soldOut:false},
+  {id:"z2",name:"Ballongewichte 5er Set",preis:3.99,beschreibung:"Dekorativ, versch. Farben",emoji:"⚓",optionen:["farbe","menge"],soldOut:false},
+  {id:"z3",name:"Geschenkband 10m",preis:1.99,beschreibung:"Satinband, versch. Farben",emoji:"🎀",optionen:["farbe","menge"],soldOut:false},
+  {id:"z4",name:"Luftpumpe Hand",preis:4.99,beschreibung:"Für Latexballons, kompakt",emoji:"💨",optionen:["menge"],soldOut:false},
+];
+
+const UPSELL_RULES={
+  "folienballon":["z1","z2","z3"],"herz":["z1","z2","z3"],
+  "zahl":["z1","z2"],"latex":["z1","z4","z2"],
+  "airwalker":["z2","z1"],"girlande":["z4"],
+};
+
+function allProducts(){return CATALOGS.flatMap(c=>c.pages.flatMap(p=>(p.hotspots||[])))}
+
+// ═══════════════════════════════════════════════════
+// TAGESNUMMER via Firebase
+// ═══════════════════════════════════════════════════
+async function getNextNumber(){
+  const today=new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const ref=db.ref(`tagesnummer/${today}`);
+  const snap=await ref.once("value");
+  const next=(snap.val()||0)+1;
+  await ref.set(next);
+  return next;
+}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("screen-"+name).classList.add("active");
+  const tab=document.getElementById("tab-"+name);
+  if(tab)tab.classList.add("active");
+  if(name==="cart")renderCart();
+  if(name==="wish")renderWish();
+}
+
+// ═══════════════════════════════════════════════════
+// ADMIN
+// ═══════════════════════════════════════════════════
+let adminMode=false,placing=false,editPageIdx=null,editHid=null,editCatIdx=0;
+let nextHid=200;
+
+function openPinModal(){
+  if(adminMode){exitAdmin();return;}
+  document.getElementById("pin-input").value="";
+  document.getElementById("pin-error").textContent="";
+  document.getElementById("pin-modal").classList.add("open");
+  setTimeout(()=>document.getElementById("pin-input").focus(),80);
+}
+function closePinModal(){document.getElementById("pin-modal").classList.remove("open")}
+function checkPin(){
+  if(document.getElementById("pin-input").value===ADMIN_PIN){
+    closePinModal();adminMode=true;
+    document.getElementById("admin-bar").classList.add("open");
+    document.getElementById("tab-admin").classList.add("active");
+    toast("Admin aktiv 🔓","gold");rebuildBook();
+  } else {
+    document.getElementById("pin-error").textContent="Falscher PIN";
+    document.getElementById("pin-input").value="";
+  }
+}
+function exitAdmin(){
+  adminMode=false;placing=false;
+  document.getElementById("admin-bar").classList.remove("open");
+  document.getElementById("tab-admin").classList.remove("active");
+  closeEditPanel();rebuildBook();toast("Admin beendet 🔒","gold");
+}
+function togglePlacing(){
+  placing=!placing;
+  document.getElementById("btn-place").classList.toggle("placing",placing);
+  document.getElementById("btn-place").textContent=placing?"✅ Klick = Pin setzen":"📍 Hotspot setzen";
+}
+function handlePageUpload(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const cat=CATALOGS[currentCatIdx];
+    cat.pages.push({type:"image",src:ev.target.result,hotspots:[]});
+    rebuildBook();toast("Seite hinzugefügt!","gold");
+  };
+  reader.readAsDataURL(file);e.target.value="";
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(CATALOGS,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="balloni-katalog.json";a.click();
+}
+function openEditPanel(catIdx,pageIdx,hid){
+  editCatIdx=catIdx;editPageIdx=pageIdx;editHid=hid;
+  const h=CATALOGS[catIdx].pages[pageIdx].hotspots.find(x=>x.id===hid);
+  if(!h)return;
+  document.getElementById("e-name").value=h.name||"";
+  document.getElementById("e-desc").value=h.beschreibung||"";
+  document.getElementById("e-preis").value=h.preis||0;
+  document.getElementById("e-artnr").value=h.artikelnummer||"";
+  ["beschriftung","farbe","menge"].forEach(o=>{
+    document.getElementById("opt-"+o).classList.toggle("on",(h.optionen||[]).includes(o));
+  });
+  const st=document.getElementById("sold-toggle");
+  st.classList.toggle("on",!!h.soldOut);
+  document.getElementById("sold-label").textContent=h.soldOut?"⛔ Ausverkauft":"✅ Verfügbar";
+  document.getElementById("edit-panel").classList.add("open");
+}
+function closeEditPanel(){editPageIdx=editHid=null;document.getElementById("edit-panel").classList.remove("open")}
+function toggleOpt(k){document.getElementById("opt-"+k).classList.toggle("on")}
+function toggleSoldOut(){
+  const st=document.getElementById("sold-toggle");st.classList.toggle("on");
+  document.getElementById("sold-label").textContent=st.classList.contains("on")?"⛔ Ausverkauft":"✅ Verfügbar";
+}
+function saveHotspot(){
+  if(editPageIdx===null)return;
+  const h=CATALOGS[editCatIdx].pages[editPageIdx].hotspots.find(x=>x.id===editHid);
+  if(!h)return;
+  h.name=document.getElementById("e-name").value;
+  h.beschreibung=document.getElementById("e-desc").value;
+  h.preis=parseFloat(document.getElementById("e-preis").value)||0;
+  h.artikelnummer=document.getElementById("e-artnr").value;
+  h.optionen=["beschriftung","farbe","menge"].filter(o=>document.getElementById("opt-"+o).classList.contains("on"));
+  h.soldOut=document.getElementById("sold-toggle").classList.contains("on");
+  closeEditPanel();rebuildBook();toast("Gespeichert ✓","gold");
+}
+function deleteHotspot(){
+  if(editPageIdx===null)return;
+  const page=CATALOGS[editCatIdx].pages[editPageIdx];
+  page.hotspots=page.hotspots.filter(x=>x.id!==editHid);
+  closeEditPanel();rebuildBook();toast("Gelöscht","gold");
+}
+
+// ═══════════════════════════════════════════════════
+// FLIPBOOK
+// ═══════════════════════════════════════════════════
+let currentCatIdx=0,book=null;
+
+function buildCatTabs(){
+  const tabs=document.getElementById("catalog-tabs");
+  tabs.innerHTML=CATALOGS.map((c,i)=>`<button class="cat-tab${i===0?" active":""}" onclick="loadCatalog(${i},this)">${c.name}</button>`).join("");
+}
+
+function calcSize(){
+  const wrap=document.getElementById("flipbook-wrap");
+  const W=wrap.clientWidth-82,H=wrap.clientHeight-8;
+  const pw=Math.min(Math.floor(W/2),400);
+  const ph=Math.min(H,Math.floor(pw*1.41));
+  return{pw,ph};
+}
+
+function buildPage(p,pw,ph,pi,ci){
+  if(p.type==="cover"){
+    return`<div class="page page-cover" style="width:${pw}px;height:${ph}px">
+      <div style="font-size:52px">🎈</div>
+      <h1>${p.title.replace("\n","<br>")}</h1><p>${p.sub}</p>
+      <div style="font-size:10px;color:rgba(255,215,0,0.35);letter-spacing:2px;text-transform:uppercase;margin-top:10px">BALLONI · Köln-Ehrenfeld</div>
+    </div>`;
+  }
+  const pins=(p.hotspots||[]).map(h=>{
+    const enc=encodeURIComponent(JSON.stringify({...h,ci,pi}));
+    const sold=h.soldOut?"sold-out":"";
+    const adm=adminMode?"admin-mode":"";
+    return`<div class="hpin ${sold} ${adm}" style="left:${h.x}%;top:${h.y}%" onclick="pinClick(event,'${enc}',${ci},${pi},${h.id})">
+      ${!h.soldOut?'<div class="ring"></div>':''}
+      <div class="dot">${adminMode?"✦":"+"}</div>
+      <div class="tip">${h.name}${h.preis>0?`<br><span style="color:var(--gold)">${h.preis.toFixed(2)} €</span>`:""}${h.soldOut?'<br><span class="sold-badge-sm">AUSVERKAUFT</span>':""}</div>
+    </div>`;
+  }).join("");
+  if(p.type==="image"&&p.src){
+    return`<div class="page" style="width:${pw}px;height:${ph}px;position:relative" onclick="pageClick(event,${ci},${pi})">${adminMode?`<div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(255,165,0,0.6);z-index:5;pointer-events:none">📍 Klicken = neuer Hotspot</div>`:""}<img src="${p.src}" loading="lazy"/>${pins}</div>`;
+  }
+  return`<div class="page" style="width:${pw}px;height:${ph}px;background:${p.bg||"#f5f5f5"};position:relative" onclick="pageClick(event,${ci},${pi})">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:9px;padding:14px;pointer-events:none">
+      <div style="font-size:44px">${p.emoji||"🎈"}</div>
+      <div style="font-size:14px;font-weight:700;color:#444">${p.label||""}</div>
+      <div style="font-size:11px;color:#999;text-align:center;line-height:1.8">
+        ${(p.hotspots||[]).map(h=>`${h.soldOut?`<s>${h.name}</s> <span style="color:#f44;font-size:10px">ausverkauft</span>`:h.name+" — "+h.preis.toFixed(2)+" €"}`).join("<br>")}
+      </div>
+      ${adminMode?'<div style="font-size:10px;color:rgba(255,165,0,0.5);margin-top:5px">📍 Klicken = Hotspot setzen</div>':'<div style="font-size:10px;color:#bbb;margin-top:5px">💡 Goldene Punkte antippen</div>'}
+    </div>${pins}
+  </div>`;
+}
+
+function pinClick(e,enc,ci,pi,hid){
+  e.stopPropagation();
+  const h=JSON.parse(decodeURIComponent(enc));
+  if(adminMode){openEditPanel(ci,pi,hid);}
+  else{openModal(h);}
+}
+function pageClick(e,ci,pi){
+  if(!adminMode||!placing)return;
+  const el=e.currentTarget;
+  const rect=el.getBoundingClientRect();
+  const x=((e.clientX-rect.left)/rect.width)*100;
+  const y=((e.clientY-rect.top)/rect.height)*100;
+  const hs=CATALOGS[ci].pages[pi].hotspots||(CATALOGS[ci].pages[pi].hotspots=[]);
+  const newH={id:nextHid++,x,y,name:"Neues Produkt",preis:0,beschreibung:"",emoji:"🎈",optionen:["menge"],soldOut:false};
+  hs.push(newH);
+  placing=false;
+  document.getElementById("btn-place").classList.remove("placing");
+  document.getElementById("btn-place").textContent="📍 Hotspot setzen";
+  rebuildBook();
+  setTimeout(()=>openEditPanel(ci,pi,newH.id),200);
+  toast("Hotspot gesetzt!","gold");
+}
+
+function loadCatalog(idx,btn){
+  currentCatIdx=idx;
+  document.querySelectorAll(".cat-tab").forEach(b=>b.classList.remove("active"));
+  if(btn)btn.classList.add("active");
+  rebuildBook();
+}
+function rebuildBook(){
+  const cat=CATALOGS[currentCatIdx];
+  const{pw,ph}=calcSize();
+  const $fb=$("#flipbook");
+  $fb.empty().css({width:pw*2,height:ph});
+  cat.pages.forEach((p,i)=>$fb.append(buildPage(p,pw,ph,i,currentCatIdx)));
+  if(book){try{$fb.turn("destroy")}catch(e){}}
+  $fb.turn({width:pw*2,height:ph,autoCenter:true,display:"double",acceleration:true,gradients:true,elevation:50,
+    when:{turned:(e,pg)=>document.getElementById("page-indicator").textContent=`Seite ${pg} von ${cat.pages.length}`}});
+  book=$fb;
+  document.getElementById("page-indicator").textContent=`Seite 1 von ${cat.pages.length}`;
+}
+function flipPrev(){if(book)book.turn("previous")}
+function flipNext(){if(book)book.turn("next")}
+
+// ═══════════════════════════════════════════════════
+// KONFIGURATOR MODAL
+// ═══════════════════════════════════════════════════
+let mSpot=null,mSteps=[],mStep=0,mText="",mFarbe=null,mMenge=1,mDest="cart";
+
+function openModal(h){
+  if(h.soldOut){showSoldOutModal(h);return;}
+  mSpot=h;mText="";mFarbe=null;mMenge=1;mDest="cart";
+  // Schritte: erst Ziel wählen, dann Optionen
+  mSteps=["dest",...(h.optionen||[])];
+  mStep=0;renderModal();
+  document.getElementById("modal-overlay").classList.add("open");
+}
+function showSoldOutModal(h){
+  document.getElementById("mprog").innerHTML="";
+  document.getElementById("mcontent").innerHTML=`
+    <div class="sold-modal">
+      <div style="font-size:48px;margin-bottom:12px">😔</div>
+      <div class="mtitle" style="text-align:center">${h.name}</div>
+      <div style="color:var(--muted);font-size:13px;margin:10px 0 20px">Leider gerade <strong style="color:var(--red)">ausverkauft</strong>.<br>Unser Berater hilft dir gerne mit Alternativen!</div>
+      <div class="mbtn-row">
+        <button class="btn-gold" onclick="closeModalForce();showScreen('advisor')">💬 Berater fragen</button>
+        <button class="btn-ghost" onclick="closeModalForce()">Schließen</button>
+      </div>
+    </div>`;
+  document.getElementById("modal-overlay").classList.add("open");
+}
+function closeModal(e){if(e&&e.target!==document.getElementById("modal-overlay"))return;document.getElementById("modal-overlay").classList.remove("open")}
+function closeModalForce(){document.getElementById("modal-overlay").classList.remove("open")}
+
+function renderModal(){
+  document.getElementById("mprog").innerHTML=mSteps.map((_,i)=>`<div class="mbar ${i<mStep?"done":i===mStep?"cur":""}"></div>`).join("");
+  const step=mSteps[mStep];
+  const isLast=mStep===mSteps.length-1;
+  const c=document.getElementById("mcontent");
+
+  if(step==="dest"){
+    c.innerHTML=`
+      <div class="mlabel">Produkt</div>
+      <div class="mtitle">${mSpot.name}</div>
+      <div class="mdesc">${mSpot.beschreibung}</div>
+      ${mSpot.preis>0?`<div class="mprice">${mSpot.preis.toFixed(2)} €</div>`:""}
+      <div class="mlabel" style="margin-bottom:8px">Was möchtest du tun?</div>
+      <div class="dest-row">
+        <div class="dest-btn ${mDest==="cart"?"sel-cart":""}" onclick="mDest='cart';renderModal()">
+          <span class="de">🛒</span><div class="dl">In den Warenkorb</div><div class="ds">Direkt bestellen & bezahlen</div>
+        </div>
+        <div class="dest-btn ${mDest==="wish"?"sel-wish":""}" onclick="mDest='wish';renderModal()">
+          <span class="de">🌟</span><div class="dl">Zur Wunschliste</div><div class="ds">Merken & beraten lassen</div>
+        </div>
+      </div>
+      <div class="mbtn-row">
+        <button class="btn-gold" onclick="mNext()">${mSteps.length>1?"Weiter →":"Hinzufügen"}</button>
+        <button class="btn-ghost" onclick="closeModalForce()">✕</button>
+      </div>`;
+  } else if(step==="beschriftung"){
+    c.innerHTML=`
+      <div class="mlabel">Aufschrift</div>
+      <div class="mtitle">Möchten Sie eine Aufschrift?</div>
+      <div class="mdesc">z.B. „Happy Birthday Lisa" · „25 Jahre" · „Herzlichen Glückwunsch"</div>
+      <input class="minput" id="mti" maxlength="40" placeholder="Text… (optional)" value="${mText}" oninput="mText=this.value;document.getElementById('mcc').textContent=this.value.length+'/40'"/>
+      <div class="mcc" id="mcc">${mText.length}/40</div>
+      <div class="mbtn-row">
+        <button class="btn-gold" onclick="mNext()">${isLast?"✅ Hinzufügen":"Weiter →"}</button>
+        <button class="btn-ghost" onclick="mText='';mNext()">Ohne Text</button>
+      </div>`;
+    setTimeout(()=>document.getElementById("mti")?.focus(),50);
+  } else if(step==="farbe"){
+    const sw=FARBEN.map(f=>`<div class="cswatch ${mFarbe&&mFarbe.name===f.name?"sel":""}" onclick="selF('${f.name}','${f.hex}')">
+      <div class="cdot" style="background:${f.hex}"></div><div class="cname">${f.name}</div></div>`).join("");
+    c.innerHTML=`
+      <div class="mlabel">Farbe</div><div class="mtitle">Welche Farbe?</div>
+      <div class="cgrid">${sw}</div>
+      <div class="mbtn-row">
+        <button class="btn-gold" id="fnb" onclick="mNext()" ${!mFarbe?"disabled":""}>${isLast?"✅ Hinzufügen":"Weiter →"}</button>
+        <button class="btn-ghost" onclick="mFarbe=null;mNext()">Egal</button>
+      </div>`;
+  } else if(step==="menge"){
+    const tags=[mText?`<div class="msum-tag">✏️ „${mText}"</div>`:"",mFarbe?`<div class="msum-tag"><span class="cmini" style="background:${mFarbe.hex}"></span>${mFarbe.name}</div>`:""].filter(Boolean).join("");
+    c.innerHTML=`
+      <div class="mlabel">Menge</div><div class="mtitle">Wie viele?</div>
+      ${tags?`<div class="msum"><div class="msum-name">${mSpot.name}</div>${tags}</div>`:""}
+      <div class="qbig">
+        <button class="qbig-btn" onclick="chM(-1)">−</button>
+        <div class="qbig-num" id="mn">${mMenge}</div>
+        <button class="qbig-btn" onclick="chM(1)">+</button>
+      </div>
+      ${mSpot.preis>0?`<div class="mtotal" id="mt">${(mSpot.preis*mMenge).toFixed(2)} €</div>`:""}
+      <button class="btn-gold" style="width:100%;padding:12px;font-size:14px" onclick="addItem()">
+        ${mDest==="cart"?"🛒 In den Warenkorb":"🌟 Zur Wunschliste"}
+      </button>`;
+  }
+}
+function selF(n,h){mFarbe={name:n,hex:h};renderModal()}
+function chM(d){mMenge=Math.max(1,Math.min(99,mMenge+d));document.getElementById("mn").textContent=mMenge;const t=document.getElementById("mt");if(t)t.textContent=(mSpot.preis*mMenge).toFixed(2)+" €"}
+function mNext(){if(mStep<mSteps.length-1){mStep++;renderModal();}else addItem();}
+function addItem(){
+  const item={id:Date.now(),spot:mSpot,text:mText,farbe:mFarbe,menge:mMenge,dest:mDest};
+  if(mDest==="cart"){cart.push(item);updateCartBadge();}
+  else{wishlist.push(item);updateWishBadge();}
+  closeModalForce();
+  toast(mDest==="cart"?"🛒 In den Warenkorb!":"🌟 Zur Wunschliste!",mDest==="cart"?"green":"orange");
+  setTimeout(()=>showUpsell(mSpot),400);
+}
+
+// ═══════════════════════════════════════════════════
+// WARENKORB
+// ═══════════════════════════════════════════════════
+let cart=[];
+function updateCartBadge(){
+  const b=document.getElementById("cart-badge");
+  b.textContent=cart.length;b.style.display=cart.length?"inline":"none";
+}
+function renderCart(){
+  const c=document.getElementById("cart-items");
+  const em=document.getElementById("cart-empty");
+  const tot=document.getElementById("cart-total");
+  c.innerHTML="";
+  if(!cart.length){em.style.display="block";tot.style.display="none";return;}
+  em.style.display="none";tot.style.display="block";
+  cart.forEach((item,i)=>{
+    const tags=[item.text?`<span class="otag">✏️ „${item.text}"</span>`:"",item.farbe?`<span class="otag"><span class="cmini" style="background:${item.farbe.hex}"></span>${item.farbe.name}</span>`:""].filter(Boolean).join("");
+    const el=document.createElement("div");el.className="order-item";
+    el.innerHTML=`<div class="oi-info"><div class="oi-name">${item.spot.name}</div><div class="oi-tags">${tags}</div>
+      <div class="qty-row"><button class="qty-btn" onclick="chCQ(${i},-1)">−</button><span style="min-width:20px;text-align:center">${item.menge}</span><button class="qty-btn" onclick="chCQ(${i},1)">+</button></div></div>
+      <div class="oi-price">${item.spot.preis>0?(item.spot.preis*item.menge).toFixed(2)+" €":""}<br><button class="oi-del" onclick="rmCart(${i})">✕</button></div>`;
+    c.appendChild(el);
+  });
+  const sum=cart.reduce((s,it)=>s+(it.spot.preis||0)*it.menge,0);
+  document.getElementById("cart-total-price").textContent=sum.toFixed(2).replace(".",",")+` €`;
+  document.querySelector(".checkout-btn").disabled=!cart.length;
+}
+function chCQ(i,d){cart[i].menge=Math.max(1,cart[i].menge+d);renderCart()}
+function rmCart(i){cart.splice(i,1);updateCartBadge();renderCart()}
+
+async function startCheckout(){
+  const nummer=await getNextNumber();
+  const sum=cart.reduce((s,it)=>s+(it.spot.preis||0)*it.menge,0);
+  // Bestellung in Firebase speichern
+  await db.ref("bestellungen").push({
+    nummer,typ:"bestellung",
+    zeitstempel:Date.now(),
+    datum:new Date().toLocaleDateString("de-DE"),
+    uhrzeit:new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}),
+    summe:sum,
+    artikel:cart.map(it=>({
+      name:it.spot.name,
+      preis:it.spot.preis,
+      menge:it.menge,
+      aufschrift:it.text||null,
+      farbe:it.farbe?.name||null,
+      emoji:it.spot.emoji||"🎈",
+      hatHelium:!!(it.spot.optionen||[]).includes("menge"),
+      hatAufschrift:!!it.text,
+    })),
+    status:"offen"
+  });
+  // Zahlung starten
+  showPayment(sum,nummer);
+}
+
+function showPayment(sum,nummer){
+  document.getElementById("pay-amount").textContent=sum.toFixed(2).replace(".",",")+` €`;
+  document.getElementById("pay-status").textContent="Warte auf Zahlung…";
+  document.getElementById("pay-status").className="pay-status waiting";
+  showScreen("payment");
+  // SumUp würde hier angesprochen — für Demo: manuell bestätigen möglich
+  // Echter SumUp-Flow: window.location.href = `sumupmerchant://pay?amount=${sum}&currency=EUR`
+}
+function payManual(){
+  document.getElementById("pay-status").textContent="✅ Zahlung bestätigt!";
+  document.getElementById("pay-status").className="pay-status success";
+  cart=[];updateCartBadge();
+  setTimeout(()=>resetAndHome(),2500);
+}
+
+// ═══════════════════════════════════════════════════
+// WUNSCHLISTE
+// ═══════════════════════════════════════════════════
+let wishlist=[];
+function updateWishBadge(){
+  const b=document.getElementById("wish-badge");
+  b.textContent=wishlist.length;b.style.display=wishlist.length?"inline":"none";
+}
+function renderWish(){
+  const c=document.getElementById("wish-items");
+  const em=document.getElementById("wish-empty");
+  const act=document.getElementById("wish-actions");
+  c.innerHTML="";
+  if(!wishlist.length){em.style.display="block";act.style.display="none";return;}
+  em.style.display="none";act.style.display="block";
+  wishlist.forEach((item,i)=>{
+    const tags=[item.text?`<span class="otag">✏️ „${item.text}"</span>`:"",item.farbe?`<span class="otag"><span class="cmini" style="background:${item.farbe.hex}"></span>${item.farbe.name}</span>`:"",`<span class="otag">× ${item.menge}</span>`].filter(Boolean).join("");
+    const el=document.createElement("div");el.className="order-item";
+    el.innerHTML=`<div class="oi-info"><div class="oi-name">${item.spot.name}</div><div class="oi-tags">${tags}</div></div>
+      <button class="oi-del" onclick="rmWish(${i})">✕</button>`;
+    c.appendChild(el);
+  });
+  document.getElementById("wish-count-total").textContent=wishlist.length+" Artikel";
+}
+function rmWish(i){wishlist.splice(i,1);updateWishBadge();renderWish()}
+
+async function callStaff(){
+  const nummer=await getNextNumber();
+  // Wunschliste in Firebase speichern (für Statistik)
+  await db.ref("wunschlisten").push({
+    nummer,typ:"wunschliste",
+    zeitstempel:Date.now(),
+    datum:new Date().toLocaleDateString("de-DE"),
+    uhrzeit:new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}),
+    artikel:wishlist.map(it=>({name:it.spot.name,menge:it.menge,aufschrift:it.text||null,farbe:it.farbe?.name||null})),
+  });
+  // Bon drucken (Browser-Druckdialog mit gestaltetem Layout)
+  printWunschliste(nummer);
+  // Nummer-Screen zeigen
+  showNumberScreen(nummer,"wunsch");
+}
+
+function printWunschliste(nummer){
+  const items=wishlist.map(it=>`<tr><td>${it.spot.emoji||"🎈"} ${it.spot.name}</td><td>${it.menge}×</td><td>${it.text?`✏️ ${it.text}`:""}${it.farbe?` 🎨 ${it.farbe.name}`:""}</td></tr>`).join("");
+  const w=window.open("","_blank","width=380,height=500");
+  w.document.write(`<html><body style="font-family:monospace;padding:20px;max-width:320px">
+    <div style="text-align:center;border-bottom:2px dashed #000;padding-bottom:12px;margin-bottom:12px">
+      <div style="font-size:24px">🎈 BALLONI</div>
+      <div style="font-size:12px">Köln-Ehrenfeld</div>
+      <div style="font-size:11px">${new Date().toLocaleString("de-DE")}</div>
+    </div>
+    <div style="text-align:center;margin-bottom:12px">
+      <div style="font-size:14px">Ihre Beratungs-Nummer</div>
+      <div style="font-size:64px;font-weight:bold;line-height:1">${nummer}</div>
+    </div>
+    <div style="border-top:1px dashed #000;padding-top:10px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:bold;margin-bottom:6px">Wunschliste:</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">${items}</table>
+    </div>
+    <div style="border-top:2px dashed #000;padding-top:10px;text-align:center;font-size:11px">
+      Ein Mitarbeiter wird Sie aufrufen.<br>Danke für Ihre Geduld! 😊
+    </div>
+  </body></html>`);
+  w.document.close();w.print();
+}
+
+function showNumberScreen(nummer,typ){
+  document.getElementById("number-display").textContent=nummer;
+  const isWunsch=typ==="wunsch";
+  const nt=document.getElementById("number-type");
+  nt.textContent=isWunsch?"🌟 Beratungsanfrage":"🛒 Bestellung";
+  nt.className="number-type "+(isWunsch?"wunsch":"bestellung");
+  document.getElementById("number-info").textContent=isWunsch
+    ?"Ein Mitarbeiter wird Sie in Kürze aufrufen. Ihr Zettel enthält alle Ihre Wünsche."
+    :"Ihre Bestellung wird bearbeitet. Bitte bezahlen Sie am Gerät.";
+  showScreen("number");
+}
+
+function resetAndHome(){
+  wishlist=[];updateWishBadge();
+  showScreen("catalog");
+}
+
+// ═══════════════════════════════════════════════════
+// UPSELL
+// ═══════════════════════════════════════════════════
+function showUpsell(product){
+  const nl=(product.name||"").toLowerCase();
+  let keys=[];
+  for(const[k,v] of Object.entries(UPSELL_RULES)){if(nl.includes(k)){keys=v;break;}}
+  if(!keys.length)return;
+  const items=ZUBEHOER.filter(z=>keys.includes(z.id));
+  if(!items.length)return;
+  document.getElementById("upsell-items").innerHTML=items.map(p=>{
+    const enc=encodeURIComponent(JSON.stringify(p));
+    return`<div class="up-chip">${p.emoji} <strong>${p.name}</strong> — ${p.preis.toFixed(2)} €
+      <button class="up-add" onclick="openModal(JSON.parse(decodeURIComponent('${enc}')));closeUpsell()">+ Merken</button></div>`;
+  }).join("");
+  document.getElementById("upsell-panel").classList.add("open");
+  setTimeout(closeUpsell,8000);
+}
+function closeUpsell(){document.getElementById("upsell-panel").classList.remove("open")}
+
+// ═══════════════════════════════════════════════════
+// BERATER (hybrid)
+// ═══════════════════════════════════════════════════
+const ANLAESSE=[
+  {id:"geburtstag",emoji:"🎂",label:"Geburtstag",    tags:["geburtstag","zahl","happy birthday","stern","buchstaben"]},
+  {id:"hochzeit",  emoji:"💍",label:"Hochzeit",       tags:["hochzeit","herz","mr & mrs","perlmutt"]},
+  {id:"baby",      emoji:"👶",label:"Baby & Geburt",  tags:["baby","geburt","herz","stern"]},
+  {id:"kinder",    emoji:"🦄",label:"Kinder-Party",   tags:["kinder","einhorn","dinosaurier","latex"]},
+  {id:"silvester", emoji:"🍾",label:"Silvester",      tags:["silvester","stern","zahl"]},
+  {id:"geschenk",  emoji:"🎁",label:"Geschenk",       tags:["herz","geburtstag","buchstaben"]},
+  {id:"deko",      emoji:"🎀",label:"Raumdeko",       tags:["girlande","bogen","deko","konfetti"]},
+  {id:"helium",    emoji:"🫧",label:"Helium & Zubehör",tags:["helium","gewicht","pumpe","zubehör"]},
+  {id:"einschulung",emoji:"🎒",label:"Einschulung",  tags:["einschulung","zahl","buchstaben"]},
+];
+const SIMPLE_QA=[
+  {p:/latex|folie|unterschied/i, a:"Latexballons sind die klassischen runden Ballons — günstig, viele Farben, halten mit Helium ca. 8–12 Stunden. Folienballons sind glänzend, halten viel länger (oft Tage!) und gibt es in tollen Formen. Beide können wir für euch befüllen!"},
+  {p:/wie (lang|lange)|hält|schweb/i, a:"Latexballons schweben mit Helium ca. 8–12 Stunden. Folienballons bleiben oft 3–7 Tage in der Luft. Mit unserem Hi-Float-Mittel halten Latexballons sogar länger!"},
+  {p:/preis|kostet|kosten|wie (viel|teuer)/i, a:"Latexballons ab 0,49 €, Folienballons ab 3,49 €. Schau einfach im Katalog — alle Preise sind direkt dabei. Bei größeren Mengen spreche uns gerne an!"},
+  {p:/helium|befüll|selber/i, a:"Unsere Helium-Einwegflaschen (29,99 €) könnt ihr zuhause nutzen. Eine Flasche reicht für ca. 30 Latexballons (23cm). Ihr könnt die Ballons aber auch bei uns befüllen lassen!"},
+  {p:/öffnung|wann (auf|offen|geöffnet)/i, a:"Aktuelle Öffnungszeiten auf balloni.de oder einfach einen Mitarbeiter fragen — wir sind gerne für euch da!"},
+  {p:/adresse|wo (seid|sind|findet)|anfahrt/i, a:"Ihr findet uns in Köln-Ehrenfeld! Genaue Adresse und Anfahrt auf balloni.de oder fragt uns direkt."},
+];
+
+function initAdvisor(){
+  document.getElementById("anlass-grid").innerHTML=ANLAESSE.map(a=>`
+    <div class="anlass-btn" id="ab-${a.id}" onclick="selectAnlass('${a.id}')">
+      <span class="ae">${a.emoji}</span><span class="al">${a.label}</span>
+    </div>`).join("");
+}
+function selectAnlass(id){
+  document.querySelectorAll(".anlass-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("ab-"+id).classList.add("active");
+  const a=ANLAESSE.find(x=>x.id===id);
+  const all=allProducts();
+  const matched=all.filter(p=>a.tags.some(t=>(p.name||"").toLowerCase().includes(t)||(p.beschreibung||"").toLowerCase().includes(t)));
+  const recs=id==="helium"?ZUBEHOER:matched;
+  const sec=document.getElementById("rec-section");
+  document.getElementById("rec-title").textContent=`${a.emoji} Für: ${a.label}`;
+  document.getElementById("rec-grid").innerHTML=recs.length
+    ?recs.map(p=>{const enc=encodeURIComponent(JSON.stringify(p));return`<div class="rec-card${p.soldOut?" sold":""}" onclick="${p.soldOut?"":``openModal(JSON.parse(decodeURIComponent('${enc}')))``}">
+      <div class="rec-emoji">${p.emoji||"🎈"}</div>
+      <div class="rec-info"><div class="rec-name">${p.name}${p.soldOut?` <span style="background:var(--red);color:#fff;font-size:9px;border-radius:4px;padding:1px 5px">AUSVERKAUFT</span>`:""}</div><div class="rec-desc">${p.beschreibung||""}</div></div>
+      <div class="rec-price">${p.preis>0?p.preis.toFixed(2)+" €":"Anfrage"}</div>
+    </div>`;}).join("")
+    :`<div style="color:var(--muted);font-size:13px">Sprich einen Mitarbeiter an — wir helfen persönlich!</div>`;
+  sec.style.display="block";
+}
+function askQ(btn){document.getElementById("adv-input").value=btn.textContent;submitQ();}
+async function submitQ(){
+  const q=document.getElementById("adv-input").value.trim();
+  if(!q)return;
+  document.getElementById("adv-input").value="";
+  const ans=document.getElementById("adv-answer");
+  ans.style.display="block";ans.innerHTML=`<span style="color:var(--muted)">🎈 Moment…</span>`;
+  const simple=SIMPLE_QA.find(x=>x.p.test(q));
+  if(simple){ans.innerHTML="🎈 "+simple.a;return;}
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,
+        system:`Du bist BALLONI, Berater im Balloni Laden Köln-Ehrenfeld. Beantworte NUR Fragen zu Ballons und Party-Artikeln — nichts anderes. Antworte auf Deutsch, freundlich, max 2-3 Sätze, kein Markdown.
+Verfügbare Produkte: ${JSON.stringify(allProducts().filter(p=>!p.soldOut).map(p=>p.name))}`,
+        messages:[{role:"user",content:q}]})
+    });
+    const data=await res.json();
+    ans.innerHTML="🎈 "+(data.content?.[0]?.text||"Bitte einen Mitarbeiter fragen!");
+  }catch(e){ans.innerHTML="🎈 Bei dieser Frage hilft ein Mitarbeiter direkt weiter!"}
+}
+
+// ═══════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════
+function toast(msg,type="gold"){
+  const t=document.createElement("div");
+  t.className=`toast ${type}`;t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),400)},2200);
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+window.addEventListener("load",()=>{
+  buildCatTabs();
+  setTimeout(()=>loadCatalog(0,document.querySelector(".cat-tab")),150);
+  initAdvisor();
+});
+window.addEventListener("resize",()=>rebuildBook());
+</script>
+</body>
+</html>

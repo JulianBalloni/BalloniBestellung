@@ -283,8 +283,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
   <button class="abtn" id="btn-place" onclick="togglePlacing()">📍 Hotspot setzen</button>
   <button class="abtn" onclick="document.getElementById('cat-file').click()">📂 Seite hochladen</button>
   <button class="abtn" onclick="exportData()">💾 Daten exportieren</button>
-  <button class="abtn" onclick="exitAdmin()">🔒 Beenden</button>
-  <input type="file" id="cat-file" accept="image/*" style="display:none" onchange="handlePageUpload(event)"/>
+  <button class="abtn" onclick="clearPages()">🗑 Seiten leeren</button><button class="abtn" onclick="exitAdmin()">🔒 Beenden</button>
+  <input type="file" id="cat-file" accept="image/png,image/jpeg,image/webp" multiple style="display:none" onchange="handlePageUpload(event)"/>
 </div>
 
 <!-- MAIN -->
@@ -590,14 +590,41 @@ function togglePlacing(){
   document.getElementById("btn-place").textContent=placing?"✅ Klick = Pin setzen":"📍 Hotspot setzen";
 }
 function handlePageUpload(e){
-  const file=e.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    const cat=CATALOGS[currentCatIdx];
-    cat.pages.push({type:"image",src:ev.target.result,hotspots:[]});
-    rebuildBook();toast("Seite hinzugefügt!","gold");
-  };
-  reader.readAsDataURL(file);e.target.value="";
+  const files=Array.from(e.target.files);
+  if(!files.length)return;
+  const cat=CATALOGS[currentCatIdx];
+  let loaded=0;
+  toast("⏳ "+files.length+" Seite(n) werden geladen...","gold");
+  // Sort files by name so pages are in order
+  files.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      cat.pages.push({
+        type:"image",
+        src:ev.target.result,
+        label:file.name.replace(/\.[^.]+$/,""), // filename without extension
+        hotspots:[]
+      });
+      loaded++;
+      if(loaded===files.length){
+        rebuildBook();
+        toast("✅ "+loaded+" Seite(n) hinzugefügt!","green");
+      }
+    };
+    reader.onerror=()=>{
+      loaded++;
+      toast("❌ Fehler bei: "+file.name,"gold");
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value="";
+}
+function clearPages(){
+  if(!confirm("Alle hochgeladenen Seiten löschen? Hotspots bleiben erhalten."))return;
+  const cat=CATALOGS[currentCatIdx];
+  cat.pages=cat.pages.filter(p=>p.type==="cover"||p.type==="demo");
+  rebuildBook();toast("Seiten geleert","gold");
 }
 function exportData(){
   const blob=new Blob([JSON.stringify(CATALOGS,null,2)],{type:"application/json"});

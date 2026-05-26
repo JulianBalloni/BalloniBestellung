@@ -6,7 +6,17 @@
 <title>BALLONI — Mitarbeiter Display</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="firebase-config.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCJOK4mOb5HzHDNlenzJe87kDCY2ZKdeEw",
+  authDomain:        "bestellungballoni.firebaseapp.com",
+  databaseURL:       "https://bestellungballoni-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "bestellungballoni",
+  storageBucket:     "bestellungballoni.firebasestorage.app",
+  messagingSenderId: "447268676791",
+  appId:             "1:447268676791:web:f89b0dd93fc8e731f35932"
+};
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--gold:#FFD700;--dark:#0a0f1a;--green:#4CAF50;--orange:#FF8C00;--red:#f44336;--blue:#2196F3;--surface:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.1)}
@@ -137,8 +147,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:#f
 </audio>
 
 <script>
-firebase.initializeApp(FIREBASE_CONFIG);
-const db=firebase.database();
+let db=null;
+try{firebase.initializeApp(FIREBASE_CONFIG);db=firebase.database();}
+catch(e){console.warn("Firebase:",e.message);}
 
 let soundOn=false;
 let seenIds=new Set();
@@ -173,6 +184,7 @@ setInterval(updateClock,1000);updateClock();
 // Bestellungen live hören
 function listenOrders(){
   const today=new Date().toLocaleDateString("de-DE");
+  if(!db){col.innerHTML='<div class="empty-col"><div class="ei">⚠️</div>Firebase nicht verbunden</div>';return;}
   db.ref("bestellungen").on("value",snap=>{
     const data=snap.val()||{};
     const orders=Object.entries(data).map(([k,v])=>({key:k,...v}))
@@ -268,7 +280,7 @@ function renderCol(id,orders,itemsFn){
 
 function markDone(key,btn){
   btn.textContent="✅ Erledigt";btn.classList.add("done");btn.disabled=true;
-  db.ref(`bestellungen/${key}/status`).set("fertig");
+  if(db)db.ref("bestellungen/"+key+"/status").set("fertig");
 }
 
 function updateStats(orders){

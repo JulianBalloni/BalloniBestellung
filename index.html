@@ -8,7 +8,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="firebase-config.js"></script>
+<script>
+// ── Firebase Konfiguration ──────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCJOK4mOb5HzHDNlenzJe87kDCY2ZKdeEw",
+  authDomain:        "bestellungballoni.firebaseapp.com",
+  databaseURL:       "https://bestellungballoni-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "bestellungballoni",
+  storageBucket:     "bestellungballoni.firebasestorage.app",
+  messagingSenderId: "447268676791",
+  appId:             "1:447268676791:web:f89b0dd93fc8e731f35932"
+};
+const ADMIN_PIN = "1234"; // ← hier deinen PIN setzen
+const APP_CONFIG = { ladenName:"BALLONI", ladenOrt:"Köln-Ehrenfeld" };
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -423,8 +436,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--dark);color:va
 // ═══════════════════════════════════════════════════
 // FIREBASE INIT
 // ═══════════════════════════════════════════════════
-firebase.initializeApp(FIREBASE_CONFIG);
-const db = firebase.database();
+// Firebase sicher initialisieren
+let db = null;
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.database();
+} catch(e) {
+  console.warn("Firebase nicht verfügbar:", e.message);
+}
 
 // ═══════════════════════════════════════════════════
 // FARBEN
@@ -443,7 +462,7 @@ const FARBEN=[
 const CATALOGS=[
   { id:"folien", name:"🎈 Folienballons", pages:[
     {type:"cover",title:"Folienballon\nKatalog 2025",sub:"Entdecke unsere Kollektion"},
-    {type:"https://github.com/JulianBalloni/BalloniBestellung/blob/main/0001.png",bg:"#fce4ec",emoji:"❤️",label:"Herzen & Liebe",hotspots:[
+    {type:"demo",bg:"#fce4ec",emoji:"❤️",label:"Herzen & Liebe",hotspots:[
       {id:1,x:28,y:38,name:"Herz Folienballon Rot",preis:3.99,beschreibung:"45cm, selbstverschließend",emoji:"❤️",optionen:["farbe","menge"],soldOut:false},
       {id:2,x:68,y:55,name:"Herz XXL Rose Gold",preis:5.49,beschreibung:"75cm, metallic Rose Gold",emoji:"💗",optionen:["menge"],soldOut:false},
     ]},
@@ -458,7 +477,7 @@ const CATALOGS=[
   ]},
   { id:"latex", name:"🎪 Latexballons", pages:[
     {type:"cover",title:"Latexballon\nKollektion",sub:"Der Klassiker in allen Farben"},
-    { type:"image", src:"https://github.com/JulianBalloni/BalloniBestellung/blob/main/0001.png", hotspots:[] }
+    {type:"demo",bg:"#e3f2fd",emoji:"🎨",label:"Einfarbige Latex",hotspots:[
       {id:10,x:30,y:40,name:"Latexballon 30cm",preis:0.49,beschreibung:"Klassisch, viele Farben",emoji:"🎈",optionen:["farbe","menge"],soldOut:false},
       {id:11,x:65,y:45,name:"Latexballon Metallic 30cm",preis:0.79,beschreibung:"Glänzend metallic Finish",emoji:"🎈",optionen:["farbe","menge"],soldOut:false},
     ]},
@@ -506,8 +525,15 @@ function allProducts(){return CATALOGS.flatMap(c=>c.pages.flatMap(p=>(p.hotspots
 // TAGESNUMMER via Firebase
 // ═══════════════════════════════════════════════════
 async function getNextNumber(){
+  if(!db){
+    // Offline-Fallback: lokaler Zähler
+    const key="balloni_nr_"+new Date().toISOString().slice(0,10);
+    const next=(parseInt(localStorage.getItem(key)||"0"))+1;
+    localStorage.setItem(key,next);
+    return next;
+  }
   const today=new Date().toISOString().slice(0,10).replace(/-/g,"");
-  const ref=db.ref(`tagesnummer/${today}`);
+  const ref=db.ref("tagesnummer/"+today);
   const snap=await ref.once("value");
   const next=(snap.val()||0)+1;
   await ref.set(next);
@@ -853,7 +879,7 @@ async function startCheckout(){
   const nummer=await getNextNumber();
   const sum=cart.reduce((s,it)=>s+(it.spot.preis||0)*it.menge,0);
   // Bestellung in Firebase speichern
-  await db.ref("bestellungen").push({
+  if(db) await db.ref("bestellungen").push({
     nummer,typ:"bestellung",
     zeitstempel:Date.now(),
     datum:new Date().toLocaleDateString("de-DE"),
@@ -919,7 +945,7 @@ function rmWish(i){wishlist.splice(i,1);updateWishBadge();renderWish()}
 async function callStaff(){
   const nummer=await getNextNumber();
   // Wunschliste in Firebase speichern (für Statistik)
-  await db.ref("wunschlisten").push({
+  if(db) await db.ref("wunschlisten").push({
     nummer,typ:"wunschliste",
     zeitstempel:Date.now(),
     datum:new Date().toLocaleDateString("de-DE"),

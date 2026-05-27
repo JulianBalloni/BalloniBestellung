@@ -616,7 +616,9 @@ async function getNextNumber(typ){
 function showScreen(name){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
-  document.getElementById("screen-"+name).classList.add("active");
+  const screen=document.getElementById("screen-"+name);
+  if(!screen){console.error("Screen not found:",name);return;}
+  screen.classList.add("active");
   const tab=document.getElementById("tab-"+name);
   if(tab)tab.classList.add("active");
   if(name==="cart")renderCart();
@@ -1129,9 +1131,9 @@ async function startCheckout(){
     })),
     status:"offen"
   });
-  // Nummer anzeigen dann bezahlen
+  // Nummer anzeigen — nach 8 Sekunden Countdown öffnet sich SumUp
   showNumberScreen(nummer,"bestellung");
-  setTimeout(()=>showPayment(sum,nummer), 2000);
+  setTimeout(()=>showPayment(sum,nummer), 8000);
 }
 
 let currentOrderNummer=null;
@@ -1202,9 +1204,12 @@ function rmWish(i){wishlist.splice(i,1);updateWishBadge();renderWish()}
 async function callStaff(){
   try{
     const nummer=await getNextNumber("wunsch");
-    // Firebase speichern — Fehler hier soll nicht den ganzen Flow stoppen
+    console.log("Wunsch-Nummer:", nummer);
+    // Nummer SOFORT anzeigen — Drucker und Firebase laufen danach
+    showNumberScreen(nummer,"wunsch");
+    // Firebase speichern im Hintergrund
     try{
-      if(db) await db.ref("wunschlisten").push({
+      if(db) db.ref("wunschlisten").push({
         nummer,typ:"wunschliste",
         zeitstempel:Date.now(),
         datum:new Date().toLocaleDateString("de-DE"),
@@ -1212,16 +1217,13 @@ async function callStaff(){
         artikel:wishlist.map(it=>({name:it.spot.name,menge:it.menge,aufschrift:it.text||null,farbe:it.farbe?.name||null})),
       });
     }catch(fbErr){console.warn("Firebase Wunschliste:",fbErr);}
-    // Bon drucken
-    printWunschliste(nummer);
-    // Nummer-Screen zeigen
-    showNumberScreen(nummer,"wunsch");
+    // Bon drucken (nach kurzer Verzögerung)
+    setTimeout(()=>printWunschliste(nummer), 500);
   }catch(e){
     console.error("callStaff Fehler:",e);
-    // Fallback: einfach Nummer lokal generieren und weitermachen
     const fallbackNr=1000+Math.floor(Math.random()*900);
-    printWunschliste(fallbackNr);
     showNumberScreen(fallbackNr,"wunsch");
+    setTimeout(()=>printWunschliste(fallbackNr), 500);
   }
 }
 
@@ -1273,15 +1275,33 @@ function showNumberScreen(nummer,typ){
   const nt=document.getElementById("number-type");
   nt.textContent=isWunsch?"🌟 Beratungswunsch":"🛒 Bestellung";
   nt.className="number-type "+(isWunsch?"wunsch":"bestellung");
-  document.getElementById("number-info").innerHTML=isWunsch
-    ?`<strong>Bitte merken Sie sich Ihre Nummer!</strong><br>Ein Mitarbeiter ruft Sie auf.<br>Ihr Zettel mit der Wunschliste wurde gedruckt.`
-    :`<strong>Bitte merken Sie sich Ihre Nummer!</strong><br>Die Zahlung startet gleich automatisch.<br>Halten Sie Ihr Handy oder Ihre Karte bereit.`;
-  showScreen("number");
-  if(isWunsch){
-    // Wunsch: auto-reset nach 8 Sek
-    setTimeout(()=>resetAndHome(), 8000);
-  }
-  // Bestellung: SumUp öffnet sich nach 2 Sek (handled in startCheckout)
+
+  // Countdown anzeigen
+  let countdown=8;
+  const updateInfo=()=>{
+    document.getElementById("number-info").innerHTML=isWunsch
+      ?`<strong>Bitte merken Sie sich Ihre Nummer!</strong><br>Ein Mitarbeiter ruft Sie auf.<br>Ihr Zettel mit der Wunschliste wurde gedruckt.<br><br><span style="color:var(--gold);font-size:13px">Weiter in ${countdown} Sekunden…</span>`
+      :`<strong>Bitte merken Sie sich Ihre Nummer!</strong><br>Die Zahlung startet gleich automatisch.<br>Halten Sie Ihr Handy oder Ihre Karte bereit.<br><br><span style="color:var(--gold);font-size:13px">Zahlung startet in ${countdown} Sekunden…</span>`;
+  };
+  updateInfo();
+  // Show number screen directly
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("screen-number").classList.add("active");
+
+  // Countdown-Timer
+  const timer=setInterval(()=>{
+    countdown--;
+    if(countdown>0){
+      updateInfo();
+    } else {
+      clearInterval(timer);
+      if(isWunsch){
+        resetAndHome();
+      }
+      // Bestellung: SumUp startet (handled in startCheckout)
+    }
+  },1000);
 }
 
 function resetAndHome(){

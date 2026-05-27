@@ -184,7 +184,12 @@ setInterval(updateClock,1000);updateClock();
 // Bestellungen live hören
 function listenOrders(){
   const today=new Date().toLocaleDateString("de-DE");
-  if(!db){col.innerHTML='<div class="empty-col"><div class="ei">⚠️</div>Firebase nicht verbunden</div>';return;}
+  if(!db){
+    ["aufpusten","bemalen","kasse"].forEach(id=>{
+      document.getElementById("col-"+id).innerHTML='<div class="empty-col"><div class="ei">⚠️</div>Firebase nicht verbunden</div>';
+    });
+    return;
+  }
   db.ref("bestellungen").on("value",snap=>{
     const data=snap.val()||{};
     const orders=Object.entries(data).map(([k,v])=>({key:k,...v}))
@@ -302,6 +307,8 @@ function listenWunschlisten(){
 window.addEventListener("load",()=>{
   listenOrders();
   listenWunschlisten();
+  // Uhr aktualisieren
+  updateClock();
 });
 </script>
 </body>
